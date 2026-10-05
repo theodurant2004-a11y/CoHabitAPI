@@ -11,8 +11,7 @@ public abstract class Person {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
-    private Integer idPerson; //Integer ça permet que ce soit nul (le temps de la création c'est nul car on a pas d'id avant d'être crée-
-
+    private Integer idPerson; //Integer allows us to have null values because before signup we don't have an id
     @Column(name = "user_lastname", nullable = false, length = 50)
     private String lastName;
 

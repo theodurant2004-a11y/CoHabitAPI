@@ -25,6 +25,18 @@ import java.util.Map;
 @Path("/users")
 public class PersonAPI {
 
+    private final PersonDAO dao;
+
+    //It's used when the server creates the API
+    public PersonAPI(){
+        this(new PersonDAO());
+    }
+
+    // It's used to provide mock for unit tests
+    public PersonAPI(PersonDAO dao){
+        this.dao = dao;
+    }
+
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
@@ -110,7 +122,7 @@ public class PersonAPI {
                     .build();
         }
 
-        if (Person.existsByEmail(email, new PersonDAO())) {
+        if (Person.existsByEmail(email, dao)) {
             return Response.status(Response.Status.CONFLICT)
                     .entity(Collections.singletonMap(
                             "message", "Cet email est déjà utilisé."
@@ -130,7 +142,7 @@ public class PersonAPI {
             person = new Roomie(name, firstname, email, passwordHash);
         }
 
-        person.create(new PersonDAO());
+        person.create(dao);
 
         // Prepare public user information for the frontend.
         Map<String, Object> user = new HashMap<>();
