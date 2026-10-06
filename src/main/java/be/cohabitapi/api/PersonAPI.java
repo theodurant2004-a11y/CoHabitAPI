@@ -1,9 +1,9 @@
-package be.cohabitapi.cohabitapi.API;
+package be.cohabitapi.api;
 
-import be.cohabitapi.cohabitapi.DAO.PersonDAO;
-import be.cohabitapi.cohabitapi.Models.Owner;
-import be.cohabitapi.cohabitapi.Models.Person;
-import be.cohabitapi.cohabitapi.Models.Roomie;
+import be.cohabitapi.dao.PersonDAO;
+import be.cohabitapi.models.Owner;
+import be.cohabitapi.models.Person;
+import be.cohabitapi.models.Roomie;
 
 import com.fasterxml.jackson.databind.JsonNode;
 

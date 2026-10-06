@@ -1,6 +1,6 @@
-package be.cohabitapi.cohabitapi.Models;
+package be.cohabitapi.models;
 
-import be.cohabitapi.cohabitapi.DAO.PersonDAO;
+import be.cohabitapi.dao.PersonDAO;
 import jakarta.persistence.*;
 
 @Entity

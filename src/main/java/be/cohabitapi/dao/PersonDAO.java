@@ -1,8 +1,8 @@
-package be.cohabitapi.cohabitapi.DAO;
+package be.cohabitapi.dao;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
-import be.cohabitapi.cohabitapi.Models.Person;
+import be.cohabitapi.models.Person;
 
 public class PersonDAO extends DAO<Person>{
 
