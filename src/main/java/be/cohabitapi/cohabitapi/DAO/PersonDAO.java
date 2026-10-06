@@ -3,6 +3,7 @@ package be.cohabitapi.cohabitapi.DAO;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import be.cohabitapi.cohabitapi.Models.Person;
+import java.util.List;
 
 public class PersonDAO extends DAO<Person>{
 
@@ -39,6 +40,23 @@ public class PersonDAO extends DAO<Person>{
                     .getSingleResult();
 
             return count > 0;
+        } finally {
+            em.close();
+        }
+    }
+
+    //LOGIN: Find existing email and take information
+    public Person findByEmail(String email){
+        EntityManager em = JpaUtil.createEntityManager();
+
+        try {
+            List<Person> results = em.createQuery(
+                            "SELECT p FROM Person p WHERE p.email = :email", Person.class)
+                    .setParameter("email", email)
+                    // i use getResultList beceause it's  easier if a mistake is made
+                    .getResultList();
+
+            return results.isEmpty() ? null : results.get(0);
         } finally {
             em.close();
         }

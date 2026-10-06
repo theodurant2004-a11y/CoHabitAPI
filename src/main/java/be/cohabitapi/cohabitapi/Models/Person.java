@@ -12,6 +12,7 @@ public abstract class Person {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
     private Integer idPerson; //Integer allows us to have null values because before signup we don't have an id
+
     @Column(name = "user_lastname", nullable = false, length = 50)
     private String lastName;
 
@@ -27,7 +28,6 @@ public abstract class Person {
     public Integer getIdPerson() {
         return idPerson;
     }
-
     public void setIdPerson(Integer idPerson) {
         this.idPerson = idPerson;
     }
@@ -35,7 +35,6 @@ public abstract class Person {
     public String getLastName() {
         return lastName;
     }
-
     public void setLastName(String lastName) {
         this.lastName = lastName;
     }
@@ -43,7 +42,6 @@ public abstract class Person {
     public String getFirstName() {
         return firstName;
     }
-
     public void setFirstName(String firstName) {
         this.firstName = firstName;
     }
@@ -51,7 +49,6 @@ public abstract class Person {
     public String getEmail() {
         return email;
     }
-
     public void setEmail(String email) {
         this.email = email;
     }
@@ -59,11 +56,9 @@ public abstract class Person {
     public String getPasswordHash() {
         return passwordHash;
     }
-
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
     }
-
 
     protected Person() {
     }
@@ -87,4 +82,11 @@ public abstract class Person {
     public static boolean existsByEmail(String email, PersonDAO dao){
         return dao.existsByEmail(email);
     }
+
+    public static Person findByEmail(String email, PersonDAO dao){
+        return dao.findByEmail(email);
+    }
+
+    public abstract String getRole();
+
 }
