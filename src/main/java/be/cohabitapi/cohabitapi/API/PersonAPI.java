@@ -27,7 +27,6 @@ import java.util.Map;
 public class PersonAPI {
 
     private final PersonDAO dao;
-    private ParamConverters.StringConstructor stringConstructor;
 
     //It's used when the server creates the API
     public PersonAPI(){
@@ -37,11 +36,6 @@ public class PersonAPI {
     // It's used to provide mock for unit tests
     public PersonAPI(PersonDAO dao){
         this.dao = dao;
-    }
-
-    @Inject
-    public PersonAPI(ParamConverters.StringConstructor stringConstructor) {
-        this.stringConstructor = stringConstructor;
     }
 
     @POST
