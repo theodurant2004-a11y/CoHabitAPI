@@ -1,0 +1,7 @@
+POST http://localhost:8080/CoHabitAPI/api/users/login
+Content-Type: application/json
+
+{
+  "email": "alice@mail.be",
+  "password": "Test1234!"
+}
