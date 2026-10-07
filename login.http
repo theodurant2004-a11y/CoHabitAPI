@@ -1,7 +1,113 @@
-POST http://localhost:8080/CoHabitAPI/api/users/login
+# Base URL: change "_war_exploded" to "/CoHabitAPI" once the Tomcat context is fixed
+@baseUrl = http://localhost:8080/CoHabitAPI_war_exploded/api/users
+
+### 1. Login OK (owner) → 200
+POST {{baseUrl}}/login
 Content-Type: application/json
 
 {
   "email": "alice@mail.be",
+  "password": "Test1234!"
+}
+
+### 2. Email with spaces and uppercase → 200
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "  ALICE@mail.be ",
+  "password": "Test1234!"
+}
+
+### 3. Wrong password → 401
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "alice@mail.be",
+  "password": "wrong"
+}
+
+### 4. Unknown email → 401
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "nobody@mail.be",
+  "password": "Test1234!"
+}
+
+### 5. Empty JSON object → 401
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{}
+
+### 6. Missing password → 401
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "alice@mail.be"
+}
+
+### 7. Empty strings → 401
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "",
+  "password": ""
+}
+
+### 8. Password with spaces around (trimmed) → 200
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "alice@mail.be",
+  "password": "  Test1234!  "
+}
+
+### 9. SQL injection attempt → 401
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "' OR '1'='1",
+  "password": "' OR '1'='1"
+}
+
+### 10. Broken JSON → 400
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{ "email": "alice@mail.be",
+
+### 11. Unknown extra field → 200 (role must stay "owner", not "admin")
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "alice@mail.be",
+  "password": "Test1234!",
+  "role": "admin"
+}
+
+### 12. Wrong Content-Type → 415
+POST {{baseUrl}}/login
+Content-Type: text/plain
+
+hello
+
+### 13. Wrong HTTP method → 405
+GET {{baseUrl}}/login
+
+### 14. Login OK (roomie) → 200 with "role": "roomie"
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "bob@mail.be",
   "password": "Test1234!"
 }

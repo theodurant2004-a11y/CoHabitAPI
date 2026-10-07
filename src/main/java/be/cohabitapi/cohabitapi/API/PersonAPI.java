@@ -167,7 +167,7 @@ public class PersonAPI {
 
         // Check whether the JSON is null or is not an object.
         if (req == null) {
-            return Response.status(Response.Status.UNAUTHORIZED)
+            return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Collections.singletonMap("message", "JSON invalid."))
                     .build();
         }
@@ -179,7 +179,7 @@ public class PersonAPI {
         Person personLogin = Person.login(email, password, dao);
 
         if(personLogin == null){
-            return Response.status(Response.Status.BAD_REQUEST)
+            return Response.status(Response.Status.UNAUTHORIZED)
                     .entity(Collections.singletonMap(
                             "message", "Email or password is wrong"
                     ))
