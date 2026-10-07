@@ -1,16 +1,20 @@
 package be.cohabitapi.cohabitapi.API;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
+import be.cohabitapi.cohabitapi.DTO.SigninRequest;
+import be.cohabitapi.cohabitapi.DTO.UserResponse;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+import org.glassfish.jersey.internal.inject.ParamConverters;
 import org.mindrot.jbcrypt.BCrypt;
 
 import java.nio.charset.StandardCharsets;
@@ -23,6 +27,7 @@ import java.util.Map;
 public class PersonAPI {
 
     private final PersonDAO dao;
+    private ParamConverters.StringConstructor stringConstructor;
 
     //It's used when the server creates the API
     public PersonAPI(){
@@ -32,6 +37,11 @@ public class PersonAPI {
     // It's used to provide mock for unit tests
     public PersonAPI(PersonDAO dao){
         this.dao = dao;
+    }
+
+    @Inject
+    public PersonAPI(ParamConverters.StringConstructor stringConstructor) {
+        this.stringConstructor = stringConstructor;
     }
 
     @POST
@@ -151,6 +161,40 @@ public class PersonAPI {
 
         return Response.status(Response.Status.CREATED)
                 .entity(Collections.singletonMap("user", user))
+                .build();
+    }
+
+    //SignIn gestion
+    @POST
+    @Path("/login")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response login(SigninRequest req){
+
+        // Check whether the JSON is null or is not an object.
+        if (req == null) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(Collections.singletonMap("message", "JSON invalid."))
+                    .build();
+        }
+
+        //take data
+        String email = req.getEmail();
+        String password = req.getPassword();
+
+        Person personLogin = Person.login(email, password, dao);
+
+        if(personLogin == null){
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Collections.singletonMap(
+                            "message", "Email or password is wrong"
+                    ))
+                    .build();
+        }
+
+        UserResponse userResponse = new UserResponse(personLogin.getIdPerson(), personLogin.getFirstName(), personLogin.getLastName(), personLogin.getEmail(), personLogin.getRole());
+        return Response.ok(
+                Collections.singletonMap("user", userResponse))
                 .build();
     }
 }

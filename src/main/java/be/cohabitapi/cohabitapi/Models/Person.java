@@ -59,9 +59,9 @@ public abstract class Person {
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
     }
-
-    protected Person() {
-    }
+    //deleted
+//    protected Person() {
+//    }
 
     protected Person(String lastName, String firstName, String email, String passwordHash) {
         this.lastName = lastName;
