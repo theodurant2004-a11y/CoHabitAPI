@@ -9,12 +9,10 @@ import be.cohabitapi.cohabitapi.Models.Roomie;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-import org.glassfish.jersey.internal.inject.ParamConverters;
 import org.mindrot.jbcrypt.BCrypt;
 
 import java.nio.charset.StandardCharsets;

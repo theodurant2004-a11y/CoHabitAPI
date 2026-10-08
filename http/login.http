@@ -1,5 +1,5 @@
-# Base URL: change "_war_exploded" to "/CoHabitAPI" once the Tomcat context is fixed
-@baseUrl = http://localhost:8080/CoHabitAPI_war_exploded/api/users
+# Base URL of the API (Tomcat Application context must be /CoHabitAPI)
+@baseUrl = http://localhost:8080/CoHabitAPI/api/users
 
 ### 1. Login OK (owner) → 200
 POST {{baseUrl}}/login
@@ -114,12 +114,6 @@ Content-Type: application/json
 
 ### CORS preflight (what the browser sends)
 OPTIONS http://localhost:8080/CoHabitAPI/api/users/login
-Origin: http://127.0.0.1:5501
-Access-Control-Request-Method: POST
-Access-Control-Request-Headers: content-type
-
-### CORS preflight on the current context
-OPTIONS http://localhost:8080/CoHabitAPI_war_exploded/api/users/login
 Origin: http://127.0.0.1:5501
 Access-Control-Request-Method: POST
 Access-Control-Request-Headers: content-type
