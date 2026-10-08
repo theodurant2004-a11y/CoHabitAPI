@@ -2,9 +2,10 @@ package be.cohabitapi.cohabitapi.DTO;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+//For take the exeption when jackson don't know the role of person
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class SignupRequest {
-    private String name;
+    private String lastname;
     private String firstname;
     private String email;
     private String password;
@@ -14,12 +15,12 @@ public class SignupRequest {
     public SignupRequest() {
     }
 
-    public String getName() {
-        return name;
+    public String getLastname() {
+        return lastname;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setLastName(String lastname) {
+        this.lastname = lastname;
     }
 
     public String getFirstname() {

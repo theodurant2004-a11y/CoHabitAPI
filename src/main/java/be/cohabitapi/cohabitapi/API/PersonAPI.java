@@ -2,12 +2,11 @@ package be.cohabitapi.cohabitapi.API;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DTO.SigninRequest;
+import be.cohabitapi.cohabitapi.DTO.SignupRequest;
 import be.cohabitapi.cohabitapi.DTO.UserResponse;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.Roomie;
-
-import com.fasterxml.jackson.databind.JsonNode;
 
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -37,6 +36,7 @@ public class PersonAPI {
     }
 
     @POST
+    //@Path("/signup")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response createAccount(SignupRequest req) {
@@ -63,9 +63,9 @@ public class PersonAPI {
             // The constructors call the setters, so the business rules run here
             Person person;
             if ("owner".equals(role)) {
-                person = new Owner(req.getName(), req.getFirstname(), req.getEmail(), req.getPassword());
+                person = new Owner(req.getLastname(), req.getFirstname(), req.getEmail(), req.getPassword());
             } else if ("roomie".equals(role)) {
-                person = new Roomie(req.getName(), req.getFirstname(), req.getEmail(), req.getPassword());
+                person = new Roomie(req.getLastname(), req.getFirstname(), req.getEmail(), req.getPassword());
             } else {
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(Collections.singletonMap("message", "Invalid role."))
@@ -98,50 +98,6 @@ public class PersonAPI {
                     .entity(Collections.singletonMap("message", e.getMessage()))
                     .build();
         }
-    }
-
-
-        if (!"owner".equals(role) && !"roomie".equals(role)) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(Collections.singletonMap(
-                            "message", "Rôle invalide."
-                    ))
-                    .build();
-        }
-
-        if (Person.existsByEmail(email, dao)) {
-            return Response.status(Response.Status.CONFLICT)
-                    .entity(Collections.singletonMap(
-                            "message", "Cet email est déjà utilisé."
-                    ))
-                    .build();
-        }
-
-        // Hash the password.
-        String passwordHash =
-                BCrypt.hashpw(password, BCrypt.gensalt(12));
-
-        Person person;
-
-        if ("owner".equals(role)) {
-            person = new Owner(name, firstname, email, passwordHash);
-        } else {
-            person = new Roomie(name, firstname, email, passwordHash);
-        }
-
-        person.create(dao);
-
-        // Prepare public user information for the frontend.
-        Map<String, Object> user = new HashMap<>();
-        user.put("id", person.getIdPerson());
-        user.put("name", person.getLastName());
-        user.put("firstname", person.getFirstName());
-        user.put("email", person.getEmail());
-        user.put("role", role);
-
-        return Response.status(Response.Status.CREATED)
-                .entity(Collections.singletonMap("user", user))
-                .build();
     }
 
     //SignIn gestion
