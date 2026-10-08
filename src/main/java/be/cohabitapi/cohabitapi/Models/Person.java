@@ -1,7 +1,10 @@
 package be.cohabitapi.cohabitapi.Models;
 
+import be.cohabitapi.cohabitapi.DAO.DAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import jakarta.persistence.*;
+import org.mindrot.jbcrypt.BCrypt;
+import java.util.Locale;
 import org.mindrot.jbcrypt.BCrypt;
 
 import java.nio.charset.StandardCharsets;
@@ -12,6 +15,7 @@ import java.util.Locale;
 @Inheritance(strategy = InheritanceType.JOINED)
 public abstract class Person {
 
+    //==============================Attributs==============================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
@@ -29,6 +33,8 @@ public abstract class Person {
     @Column(name = "user_password_hash", nullable = false, length = 255)
     private String passwordHash;
 
+
+    //==============================GETTER/SETTER==============================
     public Integer getIdPerson() {
         return idPerson;
     }
@@ -89,6 +95,9 @@ public abstract class Person {
         }
         this.passwordHash = BCrypt.hashpw(plainPassword, BCrypt.gensalt(12));
     }
+    //==============================CONSTRUCTOR==============================
+    // Required by JPA/Hibernate to load a Person from the database.
+    // Not used for JSON anymore (DTOs handle that).
     protected Person() {
     }
 
@@ -116,6 +125,7 @@ public abstract class Person {
         return value.trim();
     }
 
+    //==============================METHODS==============================
     public void create(PersonDAO dao){
         dao.create(this);
     }
@@ -128,18 +138,48 @@ public abstract class Person {
         return dao.findByEmail(email);
     }
 
+    public static String hashpassword(String password){
+
+        //Define a cost factor => Default is 10
+        //The higher the value, the longer the hashing time and the more secure the hash
+        //https://medium.com/@singhalabhay19/understanding-bcrypt-in-java-a-deep-dive-into-password-hashing-1b4362ccae94
+        int log = 12;
+
+        // Generate the salt
+        //A salt is a random string of characters added to a password before it is encrypted or hashed.
+        String salt = BCrypt.gensalt(log);
+
+        //hash the password
+        return BCrypt.hashpw(password, salt);
+
+    }
+
     public static Person login(String email, String password, PersonDAO dao){
-        if (email == null || password == null) return null;
+
+        if(email == null || password == null){
+            return null;
+        }
 
         String cleanEmail = email.trim().toLowerCase(Locale.ROOT);
         String cleanPassword = password.trim();
 
-        Person person = findByEmail(cleanEmail, dao);
-        if (person == null) return null;
 
-        if (!BCrypt.checkpw(cleanPassword, person.getPasswordHash())) return null;
+        Person person = findByEmail(cleanEmail, dao);
+        //If no user found in DB
+        if(person == null){
+            return null;
+        }
+
+        //password gestion
+        if (!BCrypt.checkpw(cleanPassword, person.getPasswordHash())) {
+            return null;
+        }
+
+        // verything is OK
         return person;
+
     }
 
     public abstract String getRole();
+
 }

@@ -2,38 +2,41 @@ package be.cohabitapi.cohabitapi.API;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DTO.SigninRequest;
-import be.cohabitapi.cohabitapi.DTO.SignupRequest;
 import be.cohabitapi.cohabitapi.DTO.UserResponse;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
+import com.fasterxml.jackson.databind.JsonNode;
+
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+import org.mindrot.jbcrypt.BCrypt;
+
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 @Path("/users")
 public class PersonAPI {
 
     private final PersonDAO dao;
 
-    // Used when the server creates the API
-    public PersonAPI() {
+    //It's used when the server creates the API
+    public PersonAPI(){
         this(new PersonDAO());
     }
 
-    // Used to provide a mock for unit tests
-    public PersonAPI(PersonDAO dao) {
+    // It's used to provide mock for unit tests
+    public PersonAPI(PersonDAO dao){
         this.dao = dao;
     }
 
     @POST
-    @Path("/signup")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response createAccount(SignupRequest req) {
@@ -97,6 +100,50 @@ public class PersonAPI {
         }
     }
 
+
+        if (!"owner".equals(role) && !"roomie".equals(role)) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Collections.singletonMap(
+                            "message", "Rôle invalide."
+                    ))
+                    .build();
+        }
+
+        if (Person.existsByEmail(email, dao)) {
+            return Response.status(Response.Status.CONFLICT)
+                    .entity(Collections.singletonMap(
+                            "message", "Cet email est déjà utilisé."
+                    ))
+                    .build();
+        }
+
+        // Hash the password.
+        String passwordHash =
+                BCrypt.hashpw(password, BCrypt.gensalt(12));
+
+        Person person;
+
+        if ("owner".equals(role)) {
+            person = new Owner(name, firstname, email, passwordHash);
+        } else {
+            person = new Roomie(name, firstname, email, passwordHash);
+        }
+
+        person.create(dao);
+
+        // Prepare public user information for the frontend.
+        Map<String, Object> user = new HashMap<>();
+        user.put("id", person.getIdPerson());
+        user.put("name", person.getLastName());
+        user.put("firstname", person.getFirstName());
+        user.put("email", person.getEmail());
+        user.put("role", role);
+
+        return Response.status(Response.Status.CREATED)
+                .entity(Collections.singletonMap("user", user))
+                .build();
+    }
+
     //SignIn gestion
     @POST
     @Path("/login")
@@ -127,7 +174,7 @@ public class PersonAPI {
 
         UserResponse userResponse = new UserResponse(personLogin.getIdPerson(), personLogin.getFirstName(), personLogin.getLastName(), personLogin.getEmail(), personLogin.getRole());
         return Response.ok(
-                        Collections.singletonMap("user", userResponse))
+                Collections.singletonMap("user", userResponse))
                 .build();
     }
 }
