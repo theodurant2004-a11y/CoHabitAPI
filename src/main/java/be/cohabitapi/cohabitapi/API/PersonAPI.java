@@ -1,6 +1,8 @@
 package be.cohabitapi.cohabitapi.API;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
+import be.cohabitapi.cohabitapi.DTO.SigninRequest;
+import be.cohabitapi.cohabitapi.DTO.UserResponse;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.Roomie;
@@ -151,6 +153,40 @@ public class PersonAPI {
 
         return Response.status(Response.Status.CREATED)
                 .entity(Collections.singletonMap("user", user))
+                .build();
+    }
+
+    //SignIn gestion
+    @POST
+    @Path("/login")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response login(SigninRequest req){
+
+        // Check whether the JSON is null or is not an object.
+        if (req == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Collections.singletonMap("message", "JSON invalid."))
+                    .build();
+        }
+
+        //take data
+        String email = req.getEmail();
+        String password = req.getPassword();
+
+        Person personLogin = Person.login(email, password, dao);
+
+        if(personLogin == null){
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(Collections.singletonMap(
+                            "message", "Email or password is wrong"
+                    ))
+                    .build();
+        }
+
+        UserResponse userResponse = new UserResponse(personLogin.getIdPerson(), personLogin.getFirstName(), personLogin.getLastName(), personLogin.getEmail(), personLogin.getRole());
+        return Response.ok(
+                Collections.singletonMap("user", userResponse))
                 .build();
     }
 }

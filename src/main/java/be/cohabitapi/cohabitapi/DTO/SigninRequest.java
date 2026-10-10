@@ -1,5 +1,9 @@
 package be.cohabitapi.cohabitapi.DTO;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+//For take the exeption when jackson don't know the role of person
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class SigninRequest {
 
     private String email;
