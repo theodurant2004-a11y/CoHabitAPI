@@ -9,6 +9,7 @@ import be.cohabitapi.cohabitapi.Models.Roomie;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -24,17 +25,8 @@ import java.util.Map;
 @Path("/users")
 public class PersonAPI {
 
-    private final PersonDAO dao;
-
-    //It's used when the server creates the API
-    public PersonAPI(){
-        this(new PersonDAO());
-    }
-
-    // It's used to provide mock for unit tests
-    public PersonAPI(PersonDAO dao){
-        this.dao = dao;
-    }
+    @Inject
+    private PersonDAO dao;
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
