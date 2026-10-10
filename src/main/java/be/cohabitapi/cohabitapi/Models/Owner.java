@@ -1,4 +1,4 @@
-package be.cohabitapi.models;
+package be.cohabitapi.cohabitapi.Models;
 
 import jakarta.persistence.*;
 

@@ -1,4 +1,4 @@
-package be.cohabitapi.api;
+package be.cohabitapi.cohabitapi.API;
 
 import jakarta.ws.rs.ApplicationPath;
 import jakarta.ws.rs.core.Application;

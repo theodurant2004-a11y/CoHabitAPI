@@ -1,4 +1,4 @@
-package be.cohabitapi.dao;
+package be.cohabitapi.cohabitapi.DAO;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
