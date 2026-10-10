@@ -1,10 +1,12 @@
 package be.cohabitapi.cohabitapi.DAO;
 
+import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import be.cohabitapi.cohabitapi.Models.Person;
 import java.util.List;
 
+@ApplicationScoped
 public class PersonDAO extends DAO<Person>{
 
     @Override

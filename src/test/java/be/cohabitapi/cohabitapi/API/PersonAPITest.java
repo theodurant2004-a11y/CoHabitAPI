@@ -24,20 +24,38 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 class PersonAPITest {
 
-    private PersonDAO dao;
-    private PersonAPI api;
-    private ObjectMapper mapper;
+//    private PersonDAO dao;
+//    private PersonAPI api;
+//    private ObjectMapper mapper;
+//
+//    @BeforeEach // Run this setup before each test.
+//    void setUp() {
+//        // Use a fake DAO so no database operations are performed.
+//        dao = mock(PersonDAO.class);
+//        api = new PersonAPI(dao); // Give the fake DAO to the real API.
+//        mapper = new ObjectMapper(); // Used to create JSON objects.
+//    }
 
-    @BeforeEach // Run this setup before each test.
-    void setUp() {
-        // Use a fake DAO so no database operations are performed.
-        dao = mock(PersonDAO.class);
-        api = new PersonAPI(dao); // Give the fake DAO to the real API.
-        mapper = new ObjectMapper(); // Used to create JSON objects.
-    }
+    //provisional
+        @Mock
+        private PersonDAO dao;          // Fake DAO: no database operations are performed.
+
+        @InjectMocks
+        private PersonAPI api;          // Real API; Mockito puts the fake DAO into its @Inject field.
+
+        private ObjectMapper mapper;
+
+        @BeforeEach // Run this setup before each test.
+        void setUp() {
+            MockitoAnnotations.openMocks(this); // Creates the @Mock and injects it into the @InjectMocks.
+            mapper = new ObjectMapper();        // Used to create JSON objects.
+        }
 
     private ObjectNode validRequest(String role) {
         // Prepare a valid signup request.

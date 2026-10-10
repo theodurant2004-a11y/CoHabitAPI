@@ -17,9 +17,4 @@ public class Roomie extends Person{
     public Roomie(Integer idPerson, String lastName, String firstName, String email, String passwordHash) {
         super(idPerson, lastName, firstName, email, passwordHash);
     }
-
-    @Override
-    public String getRole() {
-        return "roomie";
-    }
 }

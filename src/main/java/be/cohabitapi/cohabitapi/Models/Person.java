@@ -1,6 +1,6 @@
 package be.cohabitapi.cohabitapi.Models;
 
-import be.cohabitapi.cohabitapi.DAO.DAO;
+import be.cohabitapi.cohabitapi.EXCEPTION.InvalidCredentialsException;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import jakarta.persistence.*;
 import org.mindrot.jbcrypt.BCrypt;
@@ -87,14 +87,6 @@ public abstract class Person {
             dao.create(this);
     }
 
-    public static boolean existsByEmail(String email, PersonDAO dao){
-        return dao.existsByEmail(email);
-    }
-
-    public static Person findByEmail(String email, PersonDAO dao){
-        return dao.findByEmail(email);
-    }
-
     public static String hashpassword(String password){
 
         //Define a cost factor => Default is 10
@@ -111,32 +103,55 @@ public abstract class Person {
 
     }
 
-    public static Person login(String email, String password, PersonDAO dao){
+    private static String normalizeEmail(String email){
 
-        if(email == null || password == null){
-            return null;
+        if(email == null || email.trim().isEmpty()){
+            throw new IllegalArgumentException("Email is required");
         }
 
-        String cleanEmail = email.trim().toLowerCase(Locale.ROOT);
-        String cleanPassword = password.trim();
-
-
-        Person person = findByEmail(cleanEmail, dao);
-        //If no user found in DB
-        if(person == null){
-            return null;
-        }
-
-        //password gestion
-        if (!BCrypt.checkpw(cleanPassword, person.getPasswordHash())) {
-            return null;
-        }
-
-        // verything is OK
-        return person;
-
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 
-    public abstract String getRole();
+    private static String normalizePassword(String password){
 
+        if(password == null || password.trim().isEmpty()){
+            throw new IllegalArgumentException("Password is required");
+        }
+        return password.trim();
+    }
+
+    public static boolean existsByEmail(String email, PersonDAO dao){
+        return dao.existsByEmail(email);
+    }
+
+    public static Person findByEmail(String email, PersonDAO dao){
+        return dao.findByEmail(email);
+    }
+
+
+
+    public static Person login(String email, String password, PersonDAO dao){
+
+        String cleanEmail;
+        String cleanPassword;
+
+        // 1. Clean the inputs (empty → same error as a wrong login)
+        try {
+            cleanEmail = normalizeEmail(email);
+            cleanPassword = normalizePassword(password);
+        } catch (IllegalArgumentException e) {
+            //I’m creating my own exception to return the same error message directly
+            throw new InvalidCredentialsException();
+        }
+
+        // 2. Find the person and check the password
+        Person person = findByEmail(cleanEmail, dao);
+
+        if (person == null || !BCrypt.checkpw(cleanPassword, person.getPasswordHash())) {
+            throw new InvalidCredentialsException();
+        }
+
+        // 3. Everything is OK
+        return person;
+    }
 }
