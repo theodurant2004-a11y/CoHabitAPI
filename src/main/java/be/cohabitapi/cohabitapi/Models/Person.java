@@ -93,7 +93,7 @@ public abstract class Person {
         if (plainPassword.getBytes(StandardCharsets.UTF_8).length > 72) {
             throw new IllegalArgumentException("Password too long.");
         }
-        this.passwordHash = BCrypt.hashpw(plainPassword, BCrypt.gensalt(12));
+        this.passwordHash = hashpassword(plainPassword);
     }
     //==============================CONSTRUCTOR==============================
     // Required by JPA/Hibernate to load a Person from the database.
