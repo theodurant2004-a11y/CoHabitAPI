@@ -7,6 +7,7 @@ import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -30,17 +31,6 @@ import org.mockito.MockitoAnnotations;
 
 class PersonAPITest {
 
-<<<<<<< HEAD
-    private PersonDAO dao;
-    private PersonAPI api;
-
-    @BeforeEach // Run this setup before each test.
-    void setUp() {
-        // Use a fake DAO so no database operations are performed.
-        dao = mock(PersonDAO.class);
-        api = new PersonAPI(dao); // Give the fake DAO to the real API.
-    }
-=======
 //    private PersonDAO dao;
 //    private PersonAPI api;
 //    private ObjectMapper mapper;
@@ -67,7 +57,6 @@ class PersonAPITest {
             MockitoAnnotations.openMocks(this); // Creates the @Mock and injects it into the @InjectMocks.
             mapper = new ObjectMapper();        // Used to create JSON objects.
         }
->>>>>>> origin/feature/login
 
     private SignupRequest validRequest(String role) {
         // Prepare a valid signup request (the DTO that Jackson would build from the JSON).
@@ -82,10 +71,20 @@ class PersonAPITest {
     }
 
     private void assertRejected(SignupRequest req) {
+        assertRejected(req, null); // Only check that a message exists.
+    }
+
+    private void assertRejected(SignupRequest req, String expectedMessage) {
         // Invalid requests must be rejected before calling the DAO.
         try (Response response = api.createAccount(req)) { // Call the API directly; the response is closed after this block.
             assertEquals(400, response.getStatus()); // Expect a bad request.
-            assertNotNull(((Map<?, ?>) response.getEntity()).get("message")); // Check that an error message exists.
+
+            Object message = ((Map<?, ?>) response.getEntity()).get("message");
+            assertNotNull(message); // Check that an error message exists.
+
+            if (expectedMessage != null) {
+                assertEquals(expectedMessage, message); // Check that the rule that failed is the right one.
+            }
         }
 
         verifyNoInteractions(dao); // Check that the DAO received no calls.
@@ -108,7 +107,7 @@ class PersonAPITest {
         SignupRequest req = validRequest("owner");
         req.setConfirmPassword("Autre123!x"); // Different from the password.
 
-        assertRejected(req);
+        assertRejected(req, "Passwords do not match.");
     }
 
     @Test
@@ -116,7 +115,7 @@ class PersonAPITest {
         SignupRequest req = validRequest("owner");
         req.setConfirmPassword(null); // The field was not sent.
 
-        assertRejected(req);
+        assertRejected(req, "Passwords do not match.");
     }
 
     @Test
@@ -130,11 +129,13 @@ class PersonAPITest {
         try (Response response = api.createAccount(req)) {
             assertEquals(201, response.getStatus());
         }
+
+        verify(dao).create(any(Person.class)); // The person was saved.
     }
 
     @ParameterizedTest // Run this test once for each supplied value or row.
     @NullAndEmptySource // Run once with null and once with "" (missing field and empty field).
-    void shouldRejectBlankName(String value) {
+    void shouldRejectBlankLastName(String value) {
         SignupRequest req = validRequest("owner");
         req.setLastName(value);
 
@@ -164,7 +165,7 @@ class PersonAPITest {
     void shouldRejectBlankPassword(String value) {
         SignupRequest req = validRequest("owner");
         req.setPassword(value);
-        req.setConfirmPassword(value); // Identical, so only the business rule can fail.
+        req.setConfirmPassword(value); // Identical, so only the "password is required" rule can fail.
 
         assertRejected(req);
     }
@@ -174,16 +175,16 @@ class PersonAPITest {
     void shouldRejectBlankRole(String value) {
         SignupRequest req = validRequest(value);
 
-        assertRejected(req);
+        assertRejected(req, "Invalid role.");
     }
 
     @ParameterizedTest // Run this test once for each supplied value or row.
-    @ValueSource(strings = {"name", "firstname"})
+    @ValueSource(strings = {"lastname", "firstname"})
     void shouldRejectNameLongerThan50Characters(String field) {
         SignupRequest req = validRequest("owner");
         String tooLong = repeat('A', 51); // Exceed the 50-character limit.
 
-        if ("name".equals(field)) {
+        if ("lastname".equals(field)) {
             req.setLastName(tooLong);
         } else {
             req.setFirstname(tooLong);
@@ -203,7 +204,7 @@ class PersonAPITest {
         SignupRequest req = validRequest("owner");
         req.setEmail(email);
 
-        assertRejected(req);
+        assertRejected(req, "Invalid email.");
     }
 
     @Test
@@ -211,7 +212,7 @@ class PersonAPITest {
         SignupRequest req = validRequest("owner");
         req.setEmail(repeat('a', 243) + "@example.com"); // Build a 255-character email.
 
-        assertRejected(req);
+        assertRejected(req, "Invalid email.");
     }
 
     @ParameterizedTest // Run this test once for each supplied value or row.
@@ -239,14 +240,14 @@ class PersonAPITest {
         req.setPassword(longPassword);
         req.setConfirmPassword(longPassword);
 
-        assertRejected(req);
+        assertRejected(req, "Password too long.");
     }
 
     @Test
     void shouldRejectInvalidRole() {
         SignupRequest req = validRequest("admin"); // Only owner and roomie are allowed.
 
-        assertRejected(req);
+        assertRejected(req, "Invalid role.");
     }
 
     @Test
@@ -265,6 +266,26 @@ class PersonAPITest {
         }
 
         verify(dao).existsByEmail("alice.test@example.com");
+        verify(dao, never()).create(any(Person.class)); // No Person should be saved.
+    }
+
+    @Test
+    void shouldReturn500WithoutDetailsWhenDatabaseFails() {
+        // Simulate a database problem (for example the Oracle connection is lost).
+        when(dao.existsByEmail("alice.test@example.com"))
+                .thenThrow(new RuntimeException("ORA-17002 secret technical detail"));
+
+        try (Response response =
+                     api.createAccount(validRequest("owner"))) {
+            assertEquals(500, response.getStatus()); // Expect a server error.
+
+            // The message is generic: the technical detail must never reach the client.
+            assertEquals(
+                    "Server error",
+                    ((Map<?, ?>) response.getEntity()).get("message")
+            );
+        }
+
         verify(dao, never()).create(any(Person.class)); // No Person should be saved.
     }
 

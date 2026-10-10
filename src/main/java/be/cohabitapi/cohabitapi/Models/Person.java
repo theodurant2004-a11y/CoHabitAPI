@@ -1,5 +1,6 @@
 package be.cohabitapi.cohabitapi.Models;
 
+import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidCredentialsException;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import jakarta.persistence.*;
@@ -68,11 +69,11 @@ public abstract class Person {
         return email;
     }
     public void setEmail(String email) {
-        String v = requireNotBlank(email, "email");
+        String v = normalizeEmail(email);
         if(v.length() > 254 || !v.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
             throw new IllegalArgumentException("Invalid email.");
         }
-        this.email = v.toLowerCase(Locale.ROOT);
+        this.email = v;
     }
 
     public String getPasswordHash() {
@@ -80,7 +81,7 @@ public abstract class Person {
     }
 
     public void setPasswordHash(String plainPassword) {
-        plainPassword = requireNotBlank(plainPassword, "Password");
+        plainPassword = normalizePassword(plainPassword);
         if (plainPassword.length() < 8
                 || !plainPassword.matches("(?s).*[A-Z].*")
                 || !plainPassword.matches("(?s).*[a-z].*")
@@ -117,7 +118,7 @@ public abstract class Person {
         this.passwordHash = passwordHash;
     }
 
-    // a methode to check if the field is blank
+    // a method to check if the field is blank
     private static String requireNotBlank(String value, String fieldName){
         if(value == null || value.trim().isEmpty()){
             throw new IllegalArgumentException(fieldName + " is required.");
@@ -195,6 +196,46 @@ public abstract class Person {
         }
 
         // 3. Everything is OK
+        return person;
+    }
+
+    public static Person signup(String lastName, String firstName, String email, String password, String confirmPassword,  String role, PersonDAO dao){
+
+        String cleanEmail;
+        String cleanPassword;
+        String cleanConfirmPassword;
+
+        // 1. Clean the inputs (same helpers as the login).
+        // An empty value throws an IllegalArgumentException with a clear message.
+        cleanEmail = normalizeEmail(email);
+        cleanPassword = normalizePassword(password);
+        cleanConfirmPassword = confirmPassword == null ? "" : confirmPassword.trim();
+
+        // 2. The password and its confirmation must be the same
+        if (!cleanPassword.equals(cleanConfirmPassword)) {
+            throw new IllegalArgumentException("Passwords do not match.");
+        }
+
+        // 3. Build the right subclass depending on the role.
+        // The constructors call the setters, so the rules on the fields run here.
+        String cleanRole = role == null ? "" : role.trim();
+        Person person;
+
+        if ("owner".equals(cleanRole)) {
+            person = new Owner(lastName, firstName, cleanEmail, cleanPassword);
+        } else if ("roomie".equals(cleanRole)) {
+            person = new Roomie(lastName, firstName, cleanEmail, cleanPassword);
+        } else {
+            throw new IllegalArgumentException("Invalid role.");
+        }
+
+        // 4. The email must not be used yet
+        if (existsByEmail(cleanEmail, dao)) {
+            throw new EmailAlreadyUsedException();
+        }
+
+        // 5. Everything is OK: save the person (the database gives the id)
+        person.create(dao);
         return person;
     }
 }

@@ -4,17 +4,15 @@ import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DTO.SigninRequest;
 import be.cohabitapi.cohabitapi.DTO.SignupRequest;
 import be.cohabitapi.cohabitapi.DTO.UserResponse;
+import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidCredentialsException;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 
-<<<<<<< HEAD
-=======
 import com.fasterxml.jackson.databind.JsonNode;
 
 import jakarta.inject.Inject;
->>>>>>> origin/feature/login
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -39,62 +37,46 @@ public class PersonAPI {
     @Produces(MediaType.APPLICATION_JSON)
     public Response createAccount(SignupRequest req) {
 
-        if (req == null) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(Collections.singletonMap("message", "JSON invalid."))
-                    .build();
-        }
-
-        // Confirm password: same trim as in Person, so both rules stay consistent
-        String password = req.getPassword() == null ? null : req.getPassword().trim();
-        String confirmPassword = req.getConfirmPassword() == null ? null : req.getConfirmPassword().trim();
-
-        if (password == null || !password.equals(confirmPassword)) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(Collections.singletonMap("message", "Passwords do not match."))
-                    .build();
-        }
-
-        String role = req.getRole() == null ? "" : req.getRole().trim();
+        //Verify if one DTO exist
+        if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
 
         try {
-            // The constructors call the setters, so the business rules run here
-            Person person;
-            if ("owner".equals(role)) {
-                person = new Owner(req.getLastname(), req.getFirstname(), req.getEmail(), req.getPassword());
-            } else if ("roomie".equals(role)) {
-                person = new Roomie(req.getLastname(), req.getFirstname(), req.getEmail(), req.getPassword());
-            } else {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity(Collections.singletonMap("message", "Invalid role."))
-                        .build();
-            }
+            // Ask the model: it checks the passwords, the role and the email, then saves the person
+            Person person = Person.signup(
+                    req.getLastname(),
+                    req.getFirstname(),
+                    req.getEmail(),
+                    req.getPassword(),
+                    req.getConfirmPassword(),
+                    req.getRole(),
+                    dao);
 
-            // The email is already normalized by Person.setEmail
-            if (Person.existsByEmail(person.getEmail(), dao)) {
-                return Response.status(Response.Status.CONFLICT)
-                        .entity(Collections.singletonMap("message", "Email already used."))
-                        .build();
-            }
+            // Take the role of user (same way as in the login)
+            String role = person.getClass().getSimpleName();
 
-            person.create(dao);
-
-            UserResponse user = new UserResponse(
+            // api response (the role is sent back to the front)
+            UserResponse userResponse = new UserResponse(
                     person.getIdPerson(),
                     person.getFirstName(),
                     person.getLastName(),
                     person.getEmail(),
-                    person.getRole());
+                    role.toLowerCase(Locale.ROOT));
 
             return Response.status(Response.Status.CREATED)
-                    .entity(Collections.singletonMap("user", user))
+                    .entity(Collections.singletonMap("user", userResponse))
                     .build();
 
+        } catch (EmailAlreadyUsedException e) {
+            //error 409 CONFLICT
+            return error(Response.Status.CONFLICT, e.getMessage());
+
         } catch (IllegalArgumentException e) {
-            // Business rule broken in Person (name, email, password...)
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(Collections.singletonMap("message", e.getMessage()))
-                    .build();
+            //error 400 BAD_REQUEST: a business rule is broken in the model (passwords, role, name, email...)
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+
+        } catch (RuntimeException e) {
+            //error 500 INTERNAL_SERVER_ERROR (for example the database is not reachable)
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
         }
     }
 
