@@ -1,6 +1,5 @@
 package be.cohabitapi.cohabitapi.Models;
 
-import be.cohabitapi.cohabitapi.DAO.DAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import jakarta.persistence.*;
 import org.mindrot.jbcrypt.BCrypt;
