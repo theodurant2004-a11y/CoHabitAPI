@@ -1,6 +1,6 @@
 package be.cohabitapi.cohabitapi.Models;
 
-import be.cohabitapi.cohabitapi.EXEPTION.InvalidCredentialsException;
+import be.cohabitapi.cohabitapi.EXCEPTION.InvalidCredentialsException;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import jakarta.persistence.*;
 import org.mindrot.jbcrypt.BCrypt;

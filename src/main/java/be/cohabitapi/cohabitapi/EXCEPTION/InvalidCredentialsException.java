@@ -1,4 +1,4 @@
-package be.cohabitapi.cohabitapi.EXEPTION;
+package be.cohabitapi.cohabitapi.EXCEPTION;
 
 public class InvalidCredentialsException extends RuntimeException{
 

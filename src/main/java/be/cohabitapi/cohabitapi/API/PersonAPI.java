@@ -3,7 +3,7 @@ package be.cohabitapi.cohabitapi.API;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DTO.SigninRequest;
 import be.cohabitapi.cohabitapi.DTO.UserResponse;
-import be.cohabitapi.cohabitapi.EXEPTION.InvalidCredentialsException;
+import be.cohabitapi.cohabitapi.EXCEPTION.InvalidCredentialsException;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.Roomie;
