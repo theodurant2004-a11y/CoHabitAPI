@@ -136,7 +136,4 @@ public abstract class Person {
         return person;
 
     }
-
-    public abstract String getRole();
-
 }

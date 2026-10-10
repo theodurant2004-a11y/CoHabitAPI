@@ -162,11 +162,7 @@ public class PersonAPI {
                     .build();
         }
 
-        //take data
-        String email = req.getEmail();
-        String password = req.getPassword();
-
-        Person personLogin = Person.login(email, password, dao);
+        Person personLogin = Person.login(req.getEmail(), req.getPassword(), dao);
 
         if(personLogin == null){
             return Response.status(Response.Status.UNAUTHORIZED)
@@ -176,7 +172,9 @@ public class PersonAPI {
                     .build();
         }
 
-        UserResponse userResponse = new UserResponse(personLogin.getIdPerson(), personLogin.getFirstName(), personLogin.getLastName(), personLogin.getEmail(), personLogin.getRole());
+        String role = personLogin.getClass().getSimpleName();
+
+        UserResponse userResponse = new UserResponse(personLogin.getIdPerson(), personLogin.getFirstName(), personLogin.getLastName(), personLogin.getEmail(), role.toLowerCase(Locale.ROOT));
         return Response.ok(
                 Collections.singletonMap("user", userResponse))
                 .build();
