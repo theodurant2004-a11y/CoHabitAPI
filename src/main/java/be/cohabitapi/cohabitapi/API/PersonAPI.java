@@ -3,6 +3,7 @@ package be.cohabitapi.cohabitapi.API;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DTO.SigninRequest;
 import be.cohabitapi.cohabitapi.DTO.UserResponse;
+import be.cohabitapi.cohabitapi.EXEPTION.InvalidCredentialsException;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.Roomie;
@@ -148,35 +149,46 @@ public class PersonAPI {
                 .build();
     }
 
-    //SignIn gestion
+    //--------------------- SignIn gestion -------------------------------
+    // Builds an error response
+    private Response error(Response.Status status, String message) {
+        return Response.status(status)
+                .entity(Collections.singletonMap(
+                        "message", message
+                ))
+                .build();
+    }
+
     @POST
     @Path("/login")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response login(SigninRequest req){
 
-        // Check whether the JSON is null or is not an object.
-        if (req == null) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(Collections.singletonMap("message", "JSON invalid."))
+
+        //Verify if one DTO exist
+        if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
+
+        try {
+            // Ask the model
+            Person personLogin = Person.login(req.getEmail(), req.getPassword(), dao);
+
+            // Take the role of user
+            String role = personLogin.getClass().getSimpleName();
+
+            // api response
+            UserResponse userResponse = new UserResponse(personLogin.getIdPerson(), personLogin.getFirstName(), personLogin.getLastName(), personLogin.getEmail(), role.toLowerCase(Locale.ROOT));
+            return Response.ok(
+                            Collections.singletonMap("user", userResponse))
                     .build();
+
+        } catch (InvalidCredentialsException e) {
+            //error 401 UNAUTHORIZED
+            return error(Response.Status.UNAUTHORIZED, e.getMessage());
+
+        } catch (RuntimeException e) {
+            //error 500 INTERNAL_SERVER_ERROR
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
         }
-
-        Person personLogin = Person.login(req.getEmail(), req.getPassword(), dao);
-
-        if(personLogin == null){
-            return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(Collections.singletonMap(
-                            "message", "Email or password is wrong"
-                    ))
-                    .build();
-        }
-
-        String role = personLogin.getClass().getSimpleName();
-
-        UserResponse userResponse = new UserResponse(personLogin.getIdPerson(), personLogin.getFirstName(), personLogin.getLastName(), personLogin.getEmail(), role.toLowerCase(Locale.ROOT));
-        return Response.ok(
-                Collections.singletonMap("user", userResponse))
-                .build();
     }
 }
