@@ -1,4 +1,4 @@
-package be.cohabitapi.cohabitapi.DAO;
+package be.cohabitapi.dao;
 
 public abstract class DAO <T> {
 
