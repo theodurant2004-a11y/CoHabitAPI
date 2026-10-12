@@ -1,9 +1,11 @@
 package be.cohabitapi.cohabitapi.DAO;
 
 import be.cohabitapi.cohabitapi.Models.RoomShare;
+import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 
+@ApplicationScoped
 public class RoomShareDAO extends DAO<RoomShare> {
     // CREATE A ROOMSHARE : Create the room share by the EM persist method
     @Override
@@ -27,6 +29,21 @@ public class RoomShareDAO extends DAO<RoomShare> {
 
                 throw e;
             }
+        } finally {
+            em.close();
+        }
+    }
+
+    // CREATE A ROOMSHARE : Checks if the invitation key is already taken
+    public boolean keyIsAlreadyUsed(String key){
+        EntityManager em = JpaUtil.createEntityManager();
+
+        try {
+            Long count = em.createQuery( "SELECT COUNT(r) FROM RoomShare r WHERE r.invitationKey = :key", Long.class)
+                    .setParameter("key", key)
+                    .getSingleResult();
+
+            return count > 0;
         } finally {
             em.close();
         }

@@ -1,7 +1,5 @@
 package be.cohabitapi.cohabitapi.DTO;
 
-import be.cohabitapi.cohabitapi.Models.Person;
-
 public class UserResponse {
 
     private Integer id_person;
@@ -58,17 +56,5 @@ public class UserResponse {
         this.lastName = _lastName;
         this.email = _email;
         this.role = _role;
-    }
-
-    // Call the complete object of the model
-    // in the DTO constructor
-    // We have to choose between this ctor
-    // or the one at the top but we can't have two ctor
-    public UserResponse(Person model){
-        this.id_person = model.getIdPerson();
-        this.firstName = model.getFirstName();
-        this.lastName = model.getLastName();
-        this.email = model.getEmail();
-        this.role = model.getRole();
     }
 }

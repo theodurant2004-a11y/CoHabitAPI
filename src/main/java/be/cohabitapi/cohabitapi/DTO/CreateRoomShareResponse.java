@@ -2,6 +2,8 @@ package be.cohabitapi.cohabitapi.DTO;
 
 import be.cohabitapi.cohabitapi.Models.RoomShare;
 
+import java.time.LocalDate;
+
 public class CreateRoomShareResponse {
     private int id;
     private String invitationKey;
@@ -9,10 +11,7 @@ public class CreateRoomShareResponse {
     private String image;
     private String creationDate;
 
-    // Now, we give a complete Owner (without the pwd)
-    // To the client, but when the needs of him will be
-    // Clearer in my mind, I could refine this
-    private UserResponse owner;
+    private int ownerId;
 
     public int getId() {
         return id;
@@ -54,28 +53,26 @@ public class CreateRoomShareResponse {
         this.creationDate = creationDate;
     }
 
-    public UserResponse getOwner() {
-        return owner;
+    public int getOwnerId() {
+        return ownerId;
     }
 
-    public void setOwner(UserResponse owner) {
-        this.owner = owner;
+    public void setOwnerId(int ownerId) {
+        this.ownerId = ownerId;
     }
 
     public CreateRoomShareResponse() {
     }
 
-    // Call the complete object of the model
-    // in the DTO constructor
-    public CreateRoomShareResponse(RoomShare model) {
-        this.id = model.getId();
-        this.invitationKey = model.getInvitationKey();
-        this.name = model.getName();
-        this.image = model.getImage();
+    public CreateRoomShareResponse(int id, String invitationKey, String name, String image, LocalDate creationDate, int ownerId) {
+        this.id = id;
+        this.invitationKey = invitationKey;
+        this.name = name;
+        this.image = image;
         // In this version of Java, Jackson doesn't know the LocalDate type
         // So we have to parse it in a string
-        this.creationDate = model.getCreationDate().toString();
-        this.owner = new UserResponse(model.getOwner());
+        this.creationDate = creationDate.toString();
+        this.ownerId = ownerId;
     }
 
 }

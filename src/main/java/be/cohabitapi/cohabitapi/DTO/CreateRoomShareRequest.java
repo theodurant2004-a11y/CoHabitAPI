@@ -3,8 +3,10 @@ package be.cohabitapi.cohabitapi.DTO;
 public class CreateRoomShareRequest {
     private String name;
 
-    // The same name as the JSON request to make the match
-    private UserResponse owner;
+    // The same attributes name as the JSON request to make the match
+
+    // TO DO : Replace by a complete DTO when the session system will be efficient
+    private String ownerEmail;
 
     public String getName() {
         return name;
@@ -14,19 +16,19 @@ public class CreateRoomShareRequest {
         this.name = name;
     }
 
-    public UserResponse getOwner() {
-        return owner;
+    public String getOwnerEmail() {
+        return ownerEmail;
     }
 
-    public void setOwner(UserResponse owner) {
-        this.owner = owner;
+    public void setOwnerEmail(String email) {
+        this.ownerEmail = email;
     }
 
     public CreateRoomShareRequest() {
     }
 
-    public CreateRoomShareRequest(String name, UserResponse ownerDTO) {
+    public CreateRoomShareRequest(String name, String email) {
         this.name = name;
-        this.owner = ownerDTO;
+        this.ownerEmail = email;
     }
 }
