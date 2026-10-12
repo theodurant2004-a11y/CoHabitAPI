@@ -7,7 +7,6 @@ import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -30,38 +29,22 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 class PersonAPITest {
+    @Mock
+    private PersonDAO dao;          // Fake DAO: no database operations are performed.
 
-//    private PersonDAO dao;
-//    private PersonAPI api;
-//    private ObjectMapper mapper;
-//
-//    @BeforeEach // Run this setup before each test.
-//    void setUp() {
-//        // Use a fake DAO so no database operations are performed.
-//        dao = mock(PersonDAO.class);
-//        api = new PersonAPI(dao); // Give the fake DAO to the real API.
-//        mapper = new ObjectMapper(); // Used to create JSON objects.
-//    }
+    @InjectMocks
+    private PersonAPI api;          // Real API; Mockito puts the fake DAO into its @Inject field.
 
-    //provisional
-        @Mock
-        private PersonDAO dao;          // Fake DAO: no database operations are performed.
 
-        @InjectMocks
-        private PersonAPI api;          // Real API; Mockito puts the fake DAO into its @Inject field.
-
-        private ObjectMapper mapper;
-
-        @BeforeEach // Run this setup before each test.
-        void setUp() {
-            MockitoAnnotations.openMocks(this); // Creates the @Mock and injects it into the @InjectMocks.
-            mapper = new ObjectMapper();        // Used to create JSON objects.
-        }
+    @BeforeEach // Run this setup before each test.
+    void setUp() {
+        MockitoAnnotations.openMocks(this); // Creates the @Mock and injects it into the @InjectMocks.
+    }
 
     private SignupRequest validRequest(String role) {
         // Prepare a valid signup request (the DTO that Jackson would build from the JSON).
         SignupRequest req = new SignupRequest();
-        req.setLastName("Martin"); // Set a field of the request.
+        req.setLastname("Martin"); // Set a field of the request.
         req.setFirstname("Alice");
         req.setEmail("alice.test@example.com");
         req.setPassword("TestCompte123!");
@@ -75,7 +58,8 @@ class PersonAPITest {
     }
 
     private void assertRejected(SignupRequest req, String expectedMessage) {
-        // Invalid requests must be rejected before calling the DAO.
+        // The model checks the email in the DAO before building the person, so existsByEmail may be called.
+        // What matters: an invalid request is never saved.
         try (Response response = api.createAccount(req)) { // Call the API directly; the response is closed after this block.
             assertEquals(400, response.getStatus()); // Expect a bad request.
 
@@ -87,7 +71,7 @@ class PersonAPITest {
             }
         }
 
-        verifyNoInteractions(dao); // Check that the DAO received no calls.
+        verify(dao, never()).create(any(Person.class)); // Nothing was saved.
     }
 
     @Test
@@ -98,9 +82,6 @@ class PersonAPITest {
 
         verifyNoInteractions(dao);
     }
-
-    // Note: the "JSON array" test was removed. Jackson builds the DTO before the method is called,
-    // so a broken or wrong JSON never reaches the API (it is handled by JsonExceptionMapper).
 
     @Test
     void shouldRejectDifferentPasswords() {
@@ -137,7 +118,7 @@ class PersonAPITest {
     @NullAndEmptySource // Run once with null and once with "" (missing field and empty field).
     void shouldRejectBlankLastName(String value) {
         SignupRequest req = validRequest("owner");
-        req.setLastName(value);
+        req.setLastname(value);
 
         assertRejected(req);
     }
@@ -185,7 +166,7 @@ class PersonAPITest {
         String tooLong = repeat('A', 51); // Exceed the 50-character limit.
 
         if ("lastname".equals(field)) {
-            req.setLastName(tooLong);
+            req.setLastname(tooLong);
         } else {
             req.setFirstname(tooLong);
         }
@@ -307,7 +288,7 @@ class PersonAPITest {
 
         SignupRequest req = validRequest(role);
         // Add spaces and uppercase letters to check normalization.
-        req.setLastName(" Martin ");
+        req.setLastname(" Martin ");
         req.setFirstname(" Alice ");
         req.setEmail(" ALICE.TEST@EXAMPLE.COM ");
 

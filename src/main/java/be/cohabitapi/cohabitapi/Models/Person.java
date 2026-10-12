@@ -6,10 +6,9 @@ import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import jakarta.persistence.*;
 import org.mindrot.jbcrypt.BCrypt;
 import java.util.Locale;
-import org.mindrot.jbcrypt.BCrypt;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
+
 
 @Entity
 @Table(name = "AppUser")
@@ -80,16 +79,14 @@ public abstract class Person {
         return passwordHash;
     }
 
-    public void setPasswordHash(String plainPassword) {
+    public void setPassword(String plainPassword) {
         plainPassword = normalizePassword(plainPassword);
         if (plainPassword.length() < 8
                 || !plainPassword.matches("(?s).*[A-Z].*")
                 || !plainPassword.matches("(?s).*[a-z].*")
                 || !plainPassword.matches("(?s).*[0-9].*")
                 || !plainPassword.matches("(?s).*[^A-Za-z0-9].*")) {
-            throw new IllegalArgumentException(
-                    "Password must contain at least 8 characters, an uppercase letter, "
-                            + "a lowercase letter, a number and a special character.");
+            throw new IllegalArgumentException("Password is not strong enough.");
         }
         if (plainPassword.getBytes(StandardCharsets.UTF_8).length > 72) {
             throw new IllegalArgumentException("Password too long.");
@@ -106,16 +103,7 @@ public abstract class Person {
         setLastName(lastName);
         setFirstName(firstName);
         setEmail(email);
-        setPasswordHash(plainPassword);
-    }
-
-    // We use this constructor when we take from DB so the paswword is already hashed, we don't need to verify it.
-    protected Person(Integer idPerson, String lastName, String firstName, String email, String passwordHash){
-        this.idPerson = idPerson;
-        setLastName(lastName);
-        setFirstName(firstName);
-        setEmail(email);
-        this.passwordHash = passwordHash;
+        setPassword(plainPassword);
     }
 
     // a method to check if the field is blank
@@ -216,7 +204,12 @@ public abstract class Person {
             throw new IllegalArgumentException("Passwords do not match.");
         }
 
-        // 3. Build the right subclass depending on the role.
+        // 3. The email must not be used yet
+        if (existsByEmail(cleanEmail, dao)) {
+            throw new EmailAlreadyUsedException();
+        }
+
+        // 4. Build the right subclass depending on the role.
         // The constructors call the setters, so the rules on the fields run here.
         String cleanRole = role == null ? "" : role.trim();
         Person person;
@@ -227,11 +220,6 @@ public abstract class Person {
             person = new Roomie(lastName, firstName, cleanEmail, cleanPassword);
         } else {
             throw new IllegalArgumentException("Invalid role.");
-        }
-
-        // 4. The email must not be used yet
-        if (existsByEmail(cleanEmail, dao)) {
-            throw new EmailAlreadyUsedException();
         }
 
         // 5. Everything is OK: save the person (the database gives the id)

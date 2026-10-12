@@ -6,24 +6,14 @@ import be.cohabitapi.cohabitapi.DTO.SignupRequest;
 import be.cohabitapi.cohabitapi.DTO.UserResponse;
 import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidCredentialsException;
-import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.Person;
-import be.cohabitapi.cohabitapi.Models.Roomie;
-
-import com.fasterxml.jackson.databind.JsonNode;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-
-import org.mindrot.jbcrypt.BCrypt;
-
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 
 @Path("/users")
 public class PersonAPI {
@@ -31,8 +21,17 @@ public class PersonAPI {
     @Inject
     private PersonDAO dao;
 
+    // Builds an error response
+    private Response error(Response.Status status, String message) {
+        return Response.status(status)
+                .entity(Collections.singletonMap(
+                        "message", message
+                ))
+                .build();
+    }
+
+// SIGNUP
     @POST
-    //@Path("/signup")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response createAccount(SignupRequest req) {
@@ -81,15 +80,6 @@ public class PersonAPI {
     }
 
     //--------------------- SignIn gestion -------------------------------
-    // Builds an error response
-    private Response error(Response.Status status, String message) {
-        return Response.status(status)
-                .entity(Collections.singletonMap(
-                        "message", message
-                ))
-                .build();
-    }
-
     @POST
     @Path("/login")
     @Consumes(MediaType.APPLICATION_JSON)
