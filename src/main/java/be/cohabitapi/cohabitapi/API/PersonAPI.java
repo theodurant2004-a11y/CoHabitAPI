@@ -7,6 +7,7 @@ import be.cohabitapi.cohabitapi.DTO.UserResponse;
 import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidCredentialsException;
 import be.cohabitapi.cohabitapi.Models.Person;
+import static be.cohabitapi.cohabitapi.API.APIResponse.error;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -58,15 +59,15 @@ public class PersonAPI {
 
         } catch (EmailAlreadyUsedException e) {
             //error 409 CONFLICT
-            return APIResponse.error(Response.Status.CONFLICT, e.getMessage());
+            return error(Response.Status.CONFLICT, e.getMessage());
 
         } catch (IllegalArgumentException e) {
             //error 400 BAD_REQUEST: a business rule is broken in the model (passwords, role, name, email...)
-            return APIResponse.error(Response.Status.BAD_REQUEST, e.getMessage());
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
 
         } catch (RuntimeException e) {
             //error 500 INTERNAL_SERVER_ERROR (for example the database is not reachable)
-            return APIResponse.error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
         }
     }
 
