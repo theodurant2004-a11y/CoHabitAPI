@@ -21,15 +21,6 @@ public class PersonAPI {
     @Inject
     private PersonDAO dao;
 
-    // Builds an error response
-    private Response error(Response.Status status, String message) {
-        return Response.status(status)
-                .entity(Collections.singletonMap(
-                        "message", message
-                ))
-                .build();
-    }
-
 // SIGNUP
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -67,15 +58,15 @@ public class PersonAPI {
 
         } catch (EmailAlreadyUsedException e) {
             //error 409 CONFLICT
-            return error(Response.Status.CONFLICT, e.getMessage());
+            return APIResponse.error(Response.Status.CONFLICT, e.getMessage());
 
         } catch (IllegalArgumentException e) {
             //error 400 BAD_REQUEST: a business rule is broken in the model (passwords, role, name, email...)
-            return error(Response.Status.BAD_REQUEST, e.getMessage());
+            return APIResponse.error(Response.Status.BAD_REQUEST, e.getMessage());
 
         } catch (RuntimeException e) {
             //error 500 INTERNAL_SERVER_ERROR (for example the database is not reachable)
-            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
+            return APIResponse.error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
         }
     }
 

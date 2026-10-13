@@ -2,7 +2,7 @@
 @baseUrl = http://localhost:8080/CoHabitAPI/api/users
 
 # {{$timestamp}} makes each new email unique, so the database never needs to be cleaned between runs.
-# Request 3 uses the same account as login.http (alice), which must already exist.
+#  Request 3 uses the same account as login.http (alice), which must already exist.
 
 ### 1. Signup OK (owner) → 201, "role": "owner"
 POST {{baseUrl}}
