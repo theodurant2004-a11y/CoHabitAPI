@@ -10,11 +10,7 @@ public class Roomie extends Person{
     public Roomie() {
     }
 
-    public Roomie(String lastName, String firstName, String email, String passwordHash) {
-        super(lastName, firstName, email, passwordHash);
-    }
-
-    public Roomie(Integer idPerson, String lastName, String firstName, String email, String passwordHash) {
-        super(idPerson, lastName, firstName, email, passwordHash);
+    public Roomie(String lastName, String firstName, String email, String password) {
+        super(lastName, firstName, email, password);
     }
 }

@@ -1,0 +1,212 @@
+# Base URL of the API (Tomcat Application context must be /CoHabitAPI)
+@baseUrl = http://localhost:8080/CoHabitAPI/api/users
+
+# {{$timestamp}} makes each new email unique, so the database never needs to be cleaned between runs.
+#  Request 3 uses the same account as login.http (alice), which must already exist.
+
+### 1. Signup OK (owner) → 201, "role": "owner"
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "Martin",
+  "firstname": "Alice",
+  "email": "alice{{$timestamp}}@mail.be",
+  "password": "Test1234!",
+  "confirmPassword": "Test1234!",
+  "role": "owner"
+}
+
+### 2. Signup OK (roomie) → 201, "role": "roomie"
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "Durand",
+  "firstname": "Bob",
+  "email": "bob{{$timestamp}}@mail.be",
+  "password": "Test1234!",
+  "confirmPassword": "Test1234!",
+  "role": "roomie"
+}
+
+### 3. Email already used, with spaces and uppercase → 409
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "Martin",
+  "firstname": "Alice",
+  "email": "  ALICE@mail.be ",
+  "password": "Test1234!",
+  "confirmPassword": "Test1234!",
+  "role": "owner"
+}
+
+### 4. Passwords do not match → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "Martin",
+  "firstname": "Alice",
+  "email": "mismatch{{$timestamp}}@mail.be",
+  "password": "Test1234!",
+  "confirmPassword": "Different1!",
+  "role": "owner"
+}
+
+### 5. Missing confirmPassword → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "Martin",
+  "firstname": "Alice",
+  "email": "noconfirm{{$timestamp}}@mail.be",
+  "password": "Test1234!",
+  "role": "owner"
+}
+
+### 6. Missing firstname → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "Martin",
+  "email": "nofirstname{{$timestamp}}@mail.be",
+  "password": "Test1234!",
+  "confirmPassword": "Test1234!",
+  "role": "owner"
+}
+
+### 7. Empty strings → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "",
+  "firstname": "",
+  "email": "",
+  "password": "",
+  "confirmPassword": "",
+  "role": ""
+}
+
+### 8. Weak password (no uppercase, no special character) → 400, "Password is not strong enough."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "Martin",
+  "firstname": "Alice",
+  "email": "weak{{$timestamp}}@mail.be",
+  "password": "test1234",
+  "confirmPassword": "test1234",
+  "role": "owner"
+}
+
+### 9. Password longer than 72 bytes → 400, "Password too long."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "Martin",
+  "firstname": "Alice",
+  "email": "longpw{{$timestamp}}@mail.be",
+  "password": "Aa1!aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "confirmPassword": "Aa1!aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "role": "owner"
+}
+
+### 10. Invalid email → 400, "Invalid email."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "Martin",
+  "firstname": "Alice",
+  "email": "pas-un-email",
+  "password": "Test1234!",
+  "confirmPassword": "Test1234!",
+  "role": "owner"
+}
+
+### 11. Invalid role → 400, "Invalid role."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "Martin",
+  "firstname": "Alice",
+  "email": "badrole{{$timestamp}}@mail.be",
+  "password": "Test1234!",
+  "confirmPassword": "Test1234!",
+  "role": "admin"
+}
+
+### 12. Missing role → 400, "Invalid role."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "Martin",
+  "firstname": "Alice",
+  "email": "norole{{$timestamp}}@mail.be",
+  "password": "Test1234!",
+  "confirmPassword": "Test1234!"
+}
+
+### 13. Lastname longer than 50 characters → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "firstname": "Alice",
+  "email": "longname{{$timestamp}}@mail.be",
+  "password": "Test1234!",
+  "confirmPassword": "Test1234!",
+  "role": "owner"
+}
+
+### 14. Empty JSON object → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{}
+
+### 15. Broken JSON → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{ "lastname": "Martin",
+
+### 16. Unknown extra field → 201 (ignored, role stays "owner", not "admin")
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "lastname": "Martin",
+  "firstname": "Alice",
+  "email": "extra{{$timestamp}}@mail.be",
+  "password": "Test1234!",
+  "confirmPassword": "Test1234!",
+  "role": "owner",
+  "isAdmin": true
+}
+
+### 17. Wrong Content-Type → 415
+POST {{baseUrl}}
+Content-Type: text/plain
+
+hello
+
+### 18. Wrong HTTP method → 405
+GET {{baseUrl}}
+
+### CORS preflight (what the browser sends)
+OPTIONS http://localhost:8080/CoHabitAPI/api/users
+Origin: http://127.0.0.1:5501
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: content-type
