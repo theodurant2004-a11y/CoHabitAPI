@@ -204,14 +204,9 @@ public abstract class Person {
             throw new IllegalArgumentException("Passwords do not match.");
         }
 
-        // 3. The email must not be used yet
-        if (existsByEmail(cleanEmail, dao)) {
-            throw new EmailAlreadyUsedException();
-        }
-
-        // 4. Build the right subclass depending on the role.
+        // 3. Build the right subclass depending on the role.
         // The constructors call the setters, so the rules on the fields run here.
-        String cleanRole = role == null ? "" : role.trim();
+        String cleanRole = role == null ? "" : role.trim().toLowerCase(Locale.ROOT);
         Person person;
 
         if ("owner".equals(cleanRole)) {
@@ -220,6 +215,11 @@ public abstract class Person {
             person = new Roomie(lastName, firstName, cleanEmail, cleanPassword);
         } else {
             throw new IllegalArgumentException("Invalid role.");
+        }
+
+        // 4. The email must not be used yet
+        if (existsByEmail(cleanEmail, dao)) {
+            throw new EmailAlreadyUsedException();
         }
 
         // 5. Everything is OK: save the person (the database gives the id)
