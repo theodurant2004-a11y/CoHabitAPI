@@ -78,6 +78,12 @@ public class PersonAPI {
     @Produces(MediaType.APPLICATION_JSON)
     public Response login(SigninRequest req){
 
+        // Check whether the JSON is null or is not an object.
+        if (req == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Collections.singletonMap("message", "JSON invalid."))
+                    .build();
+        }
 
         //Verify if one DTO exist
         if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
