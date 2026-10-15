@@ -2,6 +2,6 @@ POST http://localhost:8080/CoHabitAPI_war_exploded/api/roomshares
 Content-Type: application/json
 
 {
-  "name": "Le nom que vous voulez l'ekip",
+  "name": "Roomshare3",
   "ownerEmail": "alice@mail.be"
 }

@@ -24,7 +24,7 @@ class loginTest {
         MockitoAnnotations.openMocks(this);
         alice = new Owner();
         alice.setEmail("alice@test.com");
-        alice.setPasswordHash(BCrypt.hashpw("Test1234!", BCrypt.gensalt(4)));
+        alice.setPassword(BCrypt.hashpw("Test1234!", BCrypt.gensalt(4)));
     }
 
     @Test

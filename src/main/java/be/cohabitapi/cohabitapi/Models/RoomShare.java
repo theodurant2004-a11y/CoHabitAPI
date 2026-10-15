@@ -1,7 +1,10 @@
 package be.cohabitapi.cohabitapi.Models;
 
 import be.cohabitapi.cohabitapi.DAO.DAO;
+import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
+import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
+import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
 
 import java.security.SecureRandom;
@@ -16,7 +19,6 @@ import java.util.Random;
 public class RoomShare {
 
     // ------------------------- Attributes and JPA Annotations --------------------------------------------------
-
 
     // @Id specifies a primary key
     @Id
@@ -46,11 +48,10 @@ public class RoomShare {
     private Owner owner;
 
     @OneToMany(mappedBy = "roomshare") // Make the bi-directionnal link with the roomie
-    private List<Roomie> roomies;
+    private final List<Roomie> roomies = new ArrayList<>();
 
 
     // ------------------------- Getters and Setters --------------------------------------------------
-
 
     public Integer getId() {
         return id;
@@ -121,8 +122,9 @@ public class RoomShare {
 
     // ------------------------- Constructors --------------------------------------------------
 
-
-    public RoomShare() {
+    // Not in public so as not to allow outsiders to use this empty constructor
+    // Not in private because Hibernate needs to use this empty constructor
+    protected RoomShare() {
     }
 
     // Constructor used for the RoomShare creation form
@@ -133,11 +135,29 @@ public class RoomShare {
         // It's almost like a DateTime
         setCreationDate(LocalDate.now());
         setOwner(owner);
-        roomies = new ArrayList<>();
     }
 
 
     // ------------------------- Utility methods --------------------------------------------------
+
+    // We create our own method to generate de invitation key
+    // We choose to have an invitation key of 6 characters
+    public static String generateInvitationKey(RoomShareDAO dao) {
+        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        Random rnd = new SecureRandom();
+        String generatedKey;
+
+        // With this loop, the unique constraint is protected from duplicates
+        do {
+            StringBuilder sb = new StringBuilder(6);
+            for (int i = 0; i < 6; i++) {
+                sb.append(characters.charAt(rnd.nextInt(characters.length())));
+            }
+            generatedKey = sb.toString();
+        } while (dao.keyIsAlreadyUsed(generatedKey));
+
+        return generatedKey;
+    }
 
     // Always use this method to connect a roomie and a roomshare
     public void addRoomie(Roomie roomie) {
@@ -151,9 +171,21 @@ public class RoomShare {
         roomie.setRoomshare(this);
     }
 
+    public static Person checkRightUser(String ownerEmail, PersonDAO dao) {
+        // Returns a Person object if the email corresponds to someone
+        Person user = Person.findByEmail(ownerEmail, dao);
 
+        // Throw a specific exception if the user sent is not found by the method above
+        if(user == null)
+            throw new UserNotFoundException();
+
+        // Throw a specific exception if the user role is not "owner"
+        if(!(user instanceof Owner))
+            throw new UnauthorizedUserException();
+
+        return user;
+    }
     // ------------------------- DAO methods --------------------------------------------------
-
 
     public void create(DAO<RoomShare> dao) { dao.create(this); }
 }

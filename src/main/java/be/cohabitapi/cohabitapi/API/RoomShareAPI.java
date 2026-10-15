@@ -10,14 +10,13 @@ import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.RoomShare;
 import static be.cohabitapi.cohabitapi.API.APIResponse.error;
+import static be.cohabitapi.cohabitapi.Models.RoomShare.generateInvitationKey;
+import static be.cohabitapi.cohabitapi.Models.RoomShare.checkRightUser;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-
-import java.security.SecureRandom;
 import java.util.Collections;
-import java.util.Random;
 
 @Path("/roomshares")
 public class RoomShareAPI {
@@ -34,21 +33,13 @@ public class RoomShareAPI {
         if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
 
         try {
-            // Returns a Person object if the email corresponds to someone
-            Person user = Person.findByEmail(req.getOwnerEmail(), personDAO);
+            // Returns the corresponding user and verifies that it is an owner
+            Person user = checkRightUser(req.getOwnerEmail(), personDAO);
 
-            // Throw a specific exception if the user sent is not found by the method above
-            if(user == null)
-                throw new UserNotFoundException();
-
-            // Throw a specific exception if the user role is not "owner"
-            if(!(user instanceof Owner))
-                throw new UnauthorizedUserException();
-
-            // Generate the invitation key of the room share
+            // Generates the invitation key of the room share
             String key = generateInvitationKey(roomShareDAO);
 
-            // Build a RoomShare object to insert its attributes in db
+            // Builds a RoomShare object to insert its attributes in db
             RoomShare rs = new RoomShare(key, req.getName(), (Owner) user);
             rs.create(roomShareDAO);
 
@@ -62,32 +53,14 @@ public class RoomShareAPI {
         catch (IllegalArgumentException e) {
             return error(Response.Status.BAD_REQUEST, e.getMessage());
         }
-        catch (UserNotFoundException | UnauthorizedUserException e) {
+        catch (UserNotFoundException e) {
             return error(Response.Status.UNAUTHORIZED, e.getMessage());
+        }
+        catch (UnauthorizedUserException e) {
+            return error(Response.Status.FORBIDDEN, e.getMessage());
         }
         catch(RuntimeException e){
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
         }
-    }
-
-
-    // We create our own method to generate de invitation key
-    // We choose to have an invitation key of 6 characters
-    // We put it in the API and not in the RoomShare model to respect the Inject of the RoomShareDAO
-    private String generateInvitationKey(RoomShareDAO dao) {
-        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        Random rnd = new SecureRandom();
-        String generatedKey;
-
-        // With this loop, the unique constraint is protected from duplicates
-        do {
-            StringBuilder sb = new StringBuilder(6);
-            for (int i = 0; i < 6; i++) {
-                sb.append(characters.charAt(rnd.nextInt(characters.length())));
-            }
-            generatedKey = sb.toString();
-        } while (dao.keyIsAlreadyUsed(generatedKey));
-
-        return generatedKey;
     }
 }
