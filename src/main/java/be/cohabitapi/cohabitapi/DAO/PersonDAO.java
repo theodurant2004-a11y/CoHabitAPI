@@ -1,5 +1,6 @@
 package be.cohabitapi.cohabitapi.DAO;
 
+import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
@@ -24,6 +25,11 @@ public class PersonDAO extends DAO<Person>{
             } catch (RuntimeException e) {
                 if(transaction.isActive()){
                     transaction.rollback();
+                }
+
+                // If the insert failed it's maybe because two persons were trying to sign up at the same time
+                if(existsByEmail(person.getEmail())){
+                    throw new EmailAlreadyUsedException();
                 }
 
                 throw e;

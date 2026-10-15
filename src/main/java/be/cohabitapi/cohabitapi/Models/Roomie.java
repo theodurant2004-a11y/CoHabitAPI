@@ -22,17 +22,13 @@ public class Roomie extends Person{
     public Roomie() {
     }
 
-    public Roomie(String lastName, String firstName, String email, String passwordHash) {
-        super(lastName, firstName, email, passwordHash);
+    public Roomie(String lastName, String firstName, String email, String password) {
+        super(lastName, firstName, email, password);
     }
 
     // Same as the constructor above but with the possibility to join directly a room share
     public Roomie(String lastName, String firstName, String email, String passwordHash, RoomShare roomshare) {
         super(lastName, firstName, email, passwordHash);
         roomshare.addRoomie(this); // Add the roomie to the room share list but add the roomshare to the roomie too
-    }
-
-    public Roomie(Integer idPerson, String lastName, String firstName, String email, String passwordHash) {
-        super(idPerson, lastName, firstName, email, passwordHash);
     }
 }

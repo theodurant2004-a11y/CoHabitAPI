@@ -1,10 +1,14 @@
 package be.cohabitapi.cohabitapi.Models;
 
+import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidCredentialsException;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import jakarta.persistence.*;
 import org.mindrot.jbcrypt.BCrypt;
 import java.util.Locale;
+
+import java.nio.charset.StandardCharsets;
+
 
 @Entity
 @Table(name = "AppUser")
@@ -42,49 +46,77 @@ public abstract class Person {
         return lastName;
     }
     public void setLastName(String lastName) {
-        this.lastName = lastName;
+        String v = requireNotBlank(lastName, "Lastname");
+        if(v.length() > 50){
+            throw new IllegalArgumentException("Lastname is maximum 50 characters.");
+        }
+        this.lastName = v;
     }
 
     public String getFirstName() {
         return firstName;
     }
     public void setFirstName(String firstName) {
-        this.firstName = firstName;
+        String v = requireNotBlank(firstName, "Firstname");
+        if(v.length() > 50) {
+            throw new IllegalArgumentException("Firstname is maximum 50 characters.");
+        }
+        this.firstName = v;
     }
 
     public String getEmail() {
         return email;
     }
     public void setEmail(String email) {
-        this.email = email;
+        String v = normalizeEmail(email);
+        if(v.length() > 254 || !v.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            throw new IllegalArgumentException("Invalid email.");
+        }
+        this.email = v;
     }
 
     public String getPasswordHash() {
         return passwordHash;
     }
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
-    }
 
+    public void setPassword(String plainPassword) {
+        plainPassword = normalizePassword(plainPassword);
+        if (plainPassword.length() < 8
+                || !plainPassword.matches("(?s).*[A-Z].*")
+                || !plainPassword.matches("(?s).*[a-z].*")
+                || !plainPassword.matches("(?s).*[0-9].*")
+                || !plainPassword.matches("(?s).*[^A-Za-z0-9].*")) {
+            throw new IllegalArgumentException("Password is not strong enough.");
+        }
+        if (plainPassword.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("Password too long.");
+        }
+        this.passwordHash = hashpassword(plainPassword);
+    }
     //==============================CONSTRUCTOR==============================
     // Required by JPA/Hibernate to load a Person from the database.
     // Not used for JSON anymore (DTOs handle that).
     protected Person() {
     }
-    protected Person(String lastName, String firstName, String email, String passwordHash) {
-        this.lastName = lastName;
-        this.firstName = firstName;
-        this.email = email;
-        this.passwordHash = passwordHash;
+
+    protected Person(String lastName, String firstName, String email, String plainPassword) {
+        setLastName(lastName);
+        setFirstName(firstName);
+        setEmail(email);
+        setPassword(plainPassword);
     }
-    protected Person(Integer idPerson, String lastName, String firstName, String email, String passwordHash){
-        this(lastName, firstName, email, passwordHash);
-        this.idPerson = idPerson;
+
+    // a method to check if the field is blank
+    private static String requireNotBlank(String value, String fieldName){
+        if(value == null || value.trim().isEmpty()){
+            throw new IllegalArgumentException(fieldName + " is required.");
+        }
+        return value.trim();
     }
 
     //==============================METHODS==============================
     public void create(PersonDAO dao){
-            dao.create(this);
+        dao.create(this);
     }
 
     public static String hashpassword(String password){
@@ -152,6 +184,46 @@ public abstract class Person {
         }
 
         // 3. Everything is OK
+        return person;
+    }
+
+    public static Person signup(String lastName, String firstName, String email, String password, String confirmPassword,  String role, PersonDAO dao){
+
+        String cleanEmail;
+        String cleanPassword;
+        String cleanConfirmPassword;
+
+        // 1. Clean the inputs (same helpers as the login).
+        // An empty value throws an IllegalArgumentException with a clear message.
+        cleanEmail = normalizeEmail(email);
+        cleanPassword = normalizePassword(password);
+        cleanConfirmPassword = confirmPassword == null ? "" : confirmPassword.trim();
+
+        // 2. The password and its confirmation must be the same
+        if (!cleanPassword.equals(cleanConfirmPassword)) {
+            throw new IllegalArgumentException("Passwords do not match.");
+        }
+
+        // 3. Build the right subclass depending on the role.
+        // The constructors call the setters, so the rules on the fields run here.
+        String cleanRole = role == null ? "" : role.trim().toLowerCase(Locale.ROOT);
+        Person person;
+
+        if ("owner".equals(cleanRole)) {
+            person = new Owner(lastName, firstName, cleanEmail, cleanPassword);
+        } else if ("roomie".equals(cleanRole)) {
+            person = new Roomie(lastName, firstName, cleanEmail, cleanPassword);
+        } else {
+            throw new IllegalArgumentException("Invalid role.");
+        }
+
+        // 4. The email must not be used yet
+        if (existsByEmail(cleanEmail, dao)) {
+            throw new EmailAlreadyUsedException();
+        }
+
+        // 5. Everything is OK: save the person (the database gives the id)
+        person.create(dao);
         return person;
     }
 }
