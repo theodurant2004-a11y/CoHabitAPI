@@ -205,17 +205,7 @@ public abstract class Person {
         }
 
         // 3. Build the right subclass depending on the role.
-        // The constructors call the setters, so the rules on the fields run here.
-        String cleanRole = role == null ? "" : role.trim().toLowerCase(Locale.ROOT);
-        Person person;
-
-        if ("owner".equals(cleanRole)) {
-            person = new Owner(lastName, firstName, cleanEmail, cleanPassword);
-        } else if ("roomie".equals(cleanRole)) {
-            person = new Roomie(lastName, firstName, cleanEmail, cleanPassword);
-        } else {
-            throw new IllegalArgumentException("Invalid role.");
-        }
+       Person person = dao.chooseRole(role, lastName, firstName, cleanEmail, cleanPassword);
 
         // 4. The email must not be used yet
         if (existsByEmail(cleanEmail, dao)) {

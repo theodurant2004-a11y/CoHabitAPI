@@ -39,6 +39,8 @@ class PersonAPITest {
     @BeforeEach // Run this setup before each test.
     void setUp() {
         MockitoAnnotations.openMocks(this); // Creates the @Mock and injects it into the @InjectMocks.
+        // We need to do this to use the real method because without the mock will return null so we couldn't test our codde
+        doCallRealMethod().when(dao).chooseRole(any(), any(), any(), any(), any());
     }
 
     private SignupRequest validRequest(String role) {
@@ -336,6 +338,7 @@ class PersonAPITest {
             assertEquals(role, user.getRole()); // The role is sent back to the front.
         }
 
+        verify(dao).chooseRole(role, " Martin ", " Alice ", "alice.test@example.com", "TestCompte123!");
         verify(dao).existsByEmail("alice.test@example.com");
         verifyNoMoreInteractions(dao); // Reject any extra DAO calls not already verified.
     }

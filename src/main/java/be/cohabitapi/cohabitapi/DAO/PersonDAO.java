@@ -1,11 +1,14 @@
 package be.cohabitapi.cohabitapi.DAO;
 
 import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
+import be.cohabitapi.cohabitapi.Models.Owner;
+import be.cohabitapi.cohabitapi.Models.Roomie;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import be.cohabitapi.cohabitapi.Models.Person;
 import java.util.List;
+import java.util.Locale;
 
 @ApplicationScoped
 public class PersonDAO extends DAO<Person>{
@@ -68,5 +71,19 @@ public class PersonDAO extends DAO<Person>{
         } finally {
             em.close();
         }
+    }
+
+    // Dao chooses the role of the suser when he signs up
+    public Person chooseRole(String role, String lastName, String firstname, String email, String password){
+        String cleanRole = role == null ? "" : role.trim().toLowerCase(Locale.ROOT);
+
+        if("owner".equals(cleanRole)){
+            return new Owner(lastName, firstname, email, password);
+        }
+        if("roomie".equals(cleanRole)){
+            return new Roomie(lastName, firstname, email, password);
+        }
+        throw new IllegalArgumentException("Invalid role.");
+
     }
 }
