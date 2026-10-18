@@ -135,7 +135,7 @@ public abstract class Person {
 
     }
 
-    private static String normalizeEmail(String email){
+    static String normalizeEmail(String email){ // The roomie also need it so i don't put it on private
 
         if(email == null || email.trim().isEmpty()){
             throw new IllegalArgumentException("Email is required");
