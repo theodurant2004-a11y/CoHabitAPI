@@ -74,7 +74,7 @@ public class PersonDAO extends DAO<Person>{
     }
 
     // Dao chooses the role of the suser when he signs up
-    public Person chooseRole(String role, String lastName, String firstname, String email, String password){
+    public Person createDependingRole(String role, String lastName, String firstname, String email, String password){
         String cleanRole = role == null ? "" : role.trim().toLowerCase(Locale.ROOT);
 
         if("owner".equals(cleanRole)){

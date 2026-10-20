@@ -205,7 +205,7 @@ public abstract class Person {
         }
 
         // 3. Build the right subclass depending on the role.
-       Person person = dao.chooseRole(role, lastName, firstName, cleanEmail, cleanPassword);
+       Person person = dao.createDependingRole(role, lastName, firstName, cleanEmail, cleanPassword);
 
         // 4. The email must not be used yet
         if (existsByEmail(cleanEmail, dao)) {
