@@ -35,9 +35,6 @@ public class RoomShare {
     @Column(name = "roomshare_name", length = 100, nullable = false)
     private String name;
 
-    @Column(name = "roomshare_image")
-    private String image;
-
     @Column(name = "roomshare_creation_date", nullable = false)
     private LocalDate creationDate;
 
@@ -83,19 +80,6 @@ public class RoomShare {
         if (name.length() > 100)
             throw new IllegalArgumentException("The name cannot be longer than 100 characters");
         this.name = name.trim();
-    }
-
-    public String getImage() { return image; }
-
-    public void setImage(String image) {
-        if (image != null)
-        {
-            if (image.trim().isEmpty())
-                throw new IllegalArgumentException("The image cannot be null or empty");
-            if (image.length() > 255)
-                throw new IllegalArgumentException("The image cannot be longer than 255 characters");
-        }
-        this.image = image;
     }
 
     public LocalDate getCreationDate() { return creationDate; }

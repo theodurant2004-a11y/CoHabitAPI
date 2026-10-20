@@ -8,7 +8,6 @@ public class CreateRoomShareResponse {
     private int id;
     private String invitationKey;
     private String name;
-    private String image;
     private String creationDate;
 
     private int ownerId;
@@ -37,18 +36,6 @@ public class CreateRoomShareResponse {
         this.name = name;
     }
 
-    public String getImage() {
-        return image;
-    }
-
-    public void setImage(String image) {
-        this.image = image;
-    }
-
-    public String getCreationDate() {
-        return creationDate;
-    }
-
     public void setCreationDate(String creationDate) {
         this.creationDate = creationDate;
     }
@@ -64,11 +51,10 @@ public class CreateRoomShareResponse {
     public CreateRoomShareResponse() {
     }
 
-    public CreateRoomShareResponse(int id, String invitationKey, String name, String image, LocalDate creationDate, int ownerId) {
+    public CreateRoomShareResponse(int id, String invitationKey, String name, LocalDate creationDate, int ownerId) {
         this.id = id;
         this.invitationKey = invitationKey;
         this.name = name;
-        this.image = image;
         // In this version of Java, Jackson doesn't know the LocalDate type
         // So we have to parse it in a string
         this.creationDate = creationDate.toString();
