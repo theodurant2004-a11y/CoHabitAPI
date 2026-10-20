@@ -114,13 +114,17 @@ public class RoomShare {
 
     // Trim any string attribute and checks if they are null, empty or upper than the max length
     private static String normalizeStringAttribute(String attribute, String attributeName, int maxLength){
+        if (attribute == null)
+            throw new IllegalArgumentException("The " + attributeName + " cannot be null");
 
-        if (attribute == null || attribute.trim().isEmpty())
-            throw new IllegalArgumentException("The " + attributeName + " cannot be null or empty");
-        if (attribute.length() > maxLength)
+        String trimmed = attribute.trim();
+
+        if (trimmed.isEmpty())
+            throw new IllegalArgumentException("The " + attributeName + " cannot be empty");
+        if (trimmed.length() > maxLength)
             throw new IllegalArgumentException("The " + attributeName + " cannot be longer than " + maxLength + " characters");
 
-        return attribute.trim();
+        return trimmed;
     }
 
     // We create our own method to generate de invitation key
