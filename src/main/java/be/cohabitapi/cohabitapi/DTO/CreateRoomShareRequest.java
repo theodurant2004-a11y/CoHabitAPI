@@ -1,11 +1,14 @@
 package be.cohabitapi.cohabitapi.DTO;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CreateRoomShareRequest {
     private String name;
 
     // The same attributes name as the JSON request to make the match
 
-    // TO DO : Replace by a complete DTO when the session system will be efficient
+    // TODO : Replace by a complete DTO when the session system will be efficient
     private String ownerEmail;
 
     public String getName() {
