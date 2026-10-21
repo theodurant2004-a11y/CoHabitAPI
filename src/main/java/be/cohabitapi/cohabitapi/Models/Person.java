@@ -160,8 +160,6 @@ public abstract class Person {
         return dao.findByEmail(email);
     }
 
-
-
     public static Person login(String email, String password, PersonDAO dao){
 
         String cleanEmail;
@@ -225,5 +223,25 @@ public abstract class Person {
         // 5. Everything is OK: save the person (the database gives the id)
         person.create(dao);
         return person;
+    }
+
+
+    //--------------------------- OVERLOADS ---------------------------
+
+    @Override
+    public boolean equals(Object o) {
+        // 1. Vérifie si c'est exactement la même instance en mémoire
+        if (this == o) return true;
+        // 2. Vérifie si l'objet est nul ou s'il appartient à une classe différente
+        if (o == null || getClass() != o.getClass()) return false;
+
+        // 3. Cast et comparaison par valeur sur l'email
+        Person person = (Person) o;
+        return java.util.Objects.equals(this.email, person.email);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(email);
     }
 }
