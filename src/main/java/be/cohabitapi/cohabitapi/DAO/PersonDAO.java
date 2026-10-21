@@ -72,17 +72,4 @@ public class PersonDAO extends DAO<Person>{
             em.close();
         }
     }
-
-    // Dao chooses the role of the user when he signs up
-    public Person createDependingRole(String cleanRole, String lastname, String firstname, String email, String password){
-
-        if("owner".equals(cleanRole)){
-            return new Owner(lastname, firstname, email, password);
-        }
-        if("roomie".equals(cleanRole)){
-            return new Roomie(lastname, firstname, email, password);
-        }
-        throw new IllegalArgumentException("Invalid role.");
-
-    }
 }
