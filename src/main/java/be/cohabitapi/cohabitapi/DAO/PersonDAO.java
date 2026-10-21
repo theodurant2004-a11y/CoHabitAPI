@@ -73,15 +73,14 @@ public class PersonDAO extends DAO<Person>{
         }
     }
 
-    // Dao chooses the role of the suser when he signs up
-    public Person createDependingRole(String role, String lastName, String firstname, String email, String password){
-        String cleanRole = role == null ? "" : role.trim().toLowerCase(Locale.ROOT);
+    // Dao chooses the role of the user when he signs up
+    public Person createDependingRole(String cleanRole, String lastname, String firstname, String email, String password){
 
         if("owner".equals(cleanRole)){
-            return new Owner(lastName, firstname, email, password);
+            return new Owner(lastname, firstname, email, password);
         }
         if("roomie".equals(cleanRole)){
-            return new Roomie(lastName, firstname, email, password);
+            return new Roomie(lastname, firstname, email, password);
         }
         throw new IllegalArgumentException("Invalid role.");
 
