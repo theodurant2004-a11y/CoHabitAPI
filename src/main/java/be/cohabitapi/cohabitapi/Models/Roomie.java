@@ -15,7 +15,8 @@ public class Roomie extends Person{
         return roomshare;
     }
 
-    public void setRoomshare(RoomShare roomshare) {
+    // Private visibility because we don't want that someone can access this setter from the outside
+    void setRoomshare(RoomShare roomshare) {
         this.roomshare = roomshare;
     }
 

@@ -18,8 +18,13 @@ public class Owner extends Person{
     }
 
     public static Owner checkRightOwner(String ownerEmail, PersonDAO dao) {
+        String cleanEmail;
+
+        // Using the Mother method to be sure that the email is in lower case and not empty
+        cleanEmail = normalizeEmail(ownerEmail);
+
         // Returns a Person object if the email corresponds to someone
-        Person owner = Person.findByEmail(ownerEmail, dao);
+        Person owner = Person.findByEmail(cleanEmail, dao);
 
         // Throw a specific exception if the user sent is not found by the method above
         if(owner == null)

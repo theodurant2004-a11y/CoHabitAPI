@@ -1,23 +1,19 @@
 package be.cohabitapi.cohabitapi.DTO;
 
-import be.cohabitapi.cohabitapi.Models.RoomShare;
-
 import java.time.LocalDate;
 
 public class CreateRoomShareResponse {
-    private int id;
+    private Integer id;
     private String invitationKey;
     private String name;
-    private String image;
     private String creationDate;
+    private Integer ownerId;
 
-    private int ownerId;
-
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
@@ -45,18 +41,18 @@ public class CreateRoomShareResponse {
         this.creationDate = creationDate;
     }
 
-    public int getOwnerId() {
+    public Integer getOwnerId() {
         return ownerId;
     }
 
-    public void setOwnerId(int ownerId) {
+    public void setOwnerId(Integer ownerId) {
         this.ownerId = ownerId;
     }
 
     public CreateRoomShareResponse() {
     }
 
-    public CreateRoomShareResponse(int id, String invitationKey, String name, LocalDate creationDate, int ownerId) {
+    public CreateRoomShareResponse(Integer id, String invitationKey, String name, LocalDate creationDate, Integer ownerId) {
         this.id = id;
         this.invitationKey = invitationKey;
         this.name = name;

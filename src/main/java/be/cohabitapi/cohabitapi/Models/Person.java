@@ -35,6 +35,7 @@ public abstract class Person {
 
 
     //==============================GETTER/SETTER==============================
+
     public Integer getIdPerson() {
         return idPerson;
     }
@@ -135,7 +136,7 @@ public abstract class Person {
 
     }
 
-    private static String normalizeEmail(String email){
+    protected static String normalizeEmail(String email){
 
         if(email == null || email.trim().isEmpty()){
             throw new IllegalArgumentException("Email is required");
@@ -144,7 +145,7 @@ public abstract class Person {
         return email.trim().toLowerCase(Locale.ROOT);
     }
 
-    private static String normalizePassword(String password){
+    protected static String normalizePassword(String password){
 
         if(password == null || password.trim().isEmpty()){
             throw new IllegalArgumentException("Password is required");
@@ -230,16 +231,19 @@ public abstract class Person {
 
     @Override
     public boolean equals(Object o) {
-        // 1. Vérifie si c'est exactement la même instance en mémoire
+        // Check if it's the same instance
         if (this == o) return true;
-        // 2. Vérifie si l'objet est nul ou s'il appartient à une classe différente
+        // Check if it's null or not an instance of the same class
         if (o == null || getClass() != o.getClass()) return false;
 
-        // 3. Cast et comparaison par valeur sur l'email
+        // Cast the object in the case of it's an instance of a Daughter class
         Person person = (Person) o;
+
+        // Check if it's the same person, characterized by the email
         return java.util.Objects.equals(this.email, person.email);
     }
 
+    // When you override the equals method, you have to override the hashCode method too
     @Override
     public int hashCode() {
         return java.util.Objects.hash(email);
