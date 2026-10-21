@@ -20,7 +20,7 @@ public class Roomie extends Person{
         this.roomshare = roomshare;
     }
 
-    public Roomie() {
+    protected Roomie() {
     }
 
     public Roomie(String lastName, String firstName, String email, String password) {

@@ -93,7 +93,7 @@ public class RoomShare {
 
     // Not in public so as not to allow outsiders to use this empty constructor
     // Not in private because Hibernate needs to use this empty constructor
-    public RoomShare() {
+    protected RoomShare() {
     }
 
     // Constructor used for the RoomShare creation form
