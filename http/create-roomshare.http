@@ -1,7 +1,7 @@
-POST http://localhost:8080/CoHabitAPI_war_exploded/api/roomshares
+POST http://localhost:8080/CoHabitAPI/api/roomshares
 Content-Type: application/json
 
 {
-  "name": "Roomshare3",
+  "name": "Alice's Home",
   "ownerEmail": "alice@mail.be"
 }
