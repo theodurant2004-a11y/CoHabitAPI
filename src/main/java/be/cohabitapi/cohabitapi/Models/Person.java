@@ -211,7 +211,7 @@ public abstract class Person {
         if("owner".equals(cleanRole)){
             person = new Owner(lastName, firstName, cleanEmail, cleanPassword);
         } else if("roomie".equals(cleanRole)){
-            person =  new Roomie(lastName, firstName, email, password);
+            person =  new Roomie(lastName, firstName, cleanEmail, cleanPassword);
         } else {
             throw new IllegalArgumentException("Invalid role.");
         }
