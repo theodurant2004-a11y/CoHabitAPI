@@ -1,11 +1,14 @@
 package be.cohabitapi.cohabitapi.DAO;
 
 import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
+import be.cohabitapi.cohabitapi.Models.Owner;
+import be.cohabitapi.cohabitapi.Models.Roomie;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import be.cohabitapi.cohabitapi.Models.Person;
 import java.util.List;
+import java.util.Locale;
 
 @ApplicationScoped
 public class PersonDAO extends DAO<Person>{

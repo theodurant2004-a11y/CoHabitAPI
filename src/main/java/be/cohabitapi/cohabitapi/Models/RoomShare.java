@@ -1,18 +1,12 @@
 package be.cohabitapi.cohabitapi.Models;
 
 import be.cohabitapi.cohabitapi.DAO.DAO;
-import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
-import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
-import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Random;
+import java.util.*;
 
 @Entity
 @Table(name = "roomshare")
@@ -62,11 +56,7 @@ public class RoomShare {
 
     // Private visibility because we never have to set this attribute out of the model
     private void setInvitationKey(String invitationKey) {
-        if (invitationKey == null || invitationKey.trim().isEmpty())
-            throw new IllegalArgumentException("The invitationKey cannot be null or empty");
-        if (invitationKey.length() > 50)
-            throw new IllegalArgumentException("The invitationKey cannot be longer than 50 characters");
-        this.invitationKey = invitationKey;
+        this.invitationKey = normalizeStringAttribute(invitationKey, "invitation key", 50);
     }
 
     public String getName() {
@@ -74,12 +64,7 @@ public class RoomShare {
     }
 
     public void setName(String name) {
-        if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("The name cannot be null or empty");
-        }
-        if (name.length() > 100)
-            throw new IllegalArgumentException("The name cannot be longer than 100 characters");
-        this.name = name.trim();
+        this.name = normalizeStringAttribute(name, "name", 100);
     }
 
     public LocalDate getCreationDate() { return creationDate; }
@@ -124,6 +109,21 @@ public class RoomShare {
 
     // ------------------------- Utility methods --------------------------------------------------
 
+    // Trim any string attribute and checks if they are null, empty or upper than the max length
+    private static String normalizeStringAttribute(String attribute, String attributeName, int maxLength){
+        if (attribute == null)
+            throw new IllegalArgumentException("The " + attributeName + " cannot be null");
+
+        String trimmed = attribute.trim();
+
+        if (trimmed.isEmpty())
+            throw new IllegalArgumentException("The " + attributeName + " cannot be empty");
+        if (trimmed.length() > maxLength)
+            throw new IllegalArgumentException("The " + attributeName + " cannot be longer than " + maxLength + " characters");
+
+        return trimmed;
+    }
+
     // We create our own method to generate de invitation key
     // We choose to have an invitation key of 6 characters
     public static String generateInvitationKey(RoomShareDAO dao) {
@@ -155,20 +155,7 @@ public class RoomShare {
         roomie.setRoomshare(this);
     }
 
-    public static Person checkRightUser(String ownerEmail, PersonDAO dao) {
-        // Returns a Person object if the email corresponds to someone
-        Person user = Person.findByEmail(ownerEmail, dao);
 
-        // Throw a specific exception if the user sent is not found by the method above
-        if(user == null)
-            throw new UserNotFoundException();
-
-        // Throw a specific exception if the user role is not "owner"
-        if(!(user instanceof Owner))
-            throw new UnauthorizedUserException();
-
-        return user;
-    }
     // ------------------------- DAO methods --------------------------------------------------
 
     public void create(DAO<RoomShare> dao) { dao.create(this); }
