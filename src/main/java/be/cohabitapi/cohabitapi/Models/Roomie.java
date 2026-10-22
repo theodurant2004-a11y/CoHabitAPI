@@ -1,6 +1,5 @@
 package be.cohabitapi.cohabitapi.Models;
 
-//import jakarta.persistence.*;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
@@ -10,7 +9,6 @@ import be.cohabitapi.cohabitapi.EXCEPTION.InvalidInvitationKeyException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
 
-import java.time.LocalDate;
 import java.util.Locale;
 
 @Entity
@@ -30,10 +28,6 @@ public class Roomie extends Person{
     @Column(name = "roomie_status", nullable = false)
     private MembershipStatus statusMember = MembershipStatus.NONE;
 
-    // The date when the owner accepted the roomie and stays null while the request is pending.
-    @Column(name = "roomie_joined_at")
-    private LocalDate joinedDate;
-
     public RoomShare getRoomshare() {
         return roomshare;
     }
@@ -42,13 +36,9 @@ public class Roomie extends Person{
         this.roomshare = roomshare;
     }
 
-    // No setter for the status and the date: they only change through the methods
+    // No setter for the status: they only change through the methods
     public MembershipStatus getStatusMember() {
         return statusMember;
-    }
-
-    public LocalDate getJoinedDate() {
-        return joinedDate;
     }
 
     public Roomie() {
@@ -64,7 +54,6 @@ public class Roomie extends Person{
         roomshare.addRoomie(this); // Add the roomie to the room share list but add the roomshare to the roomie too
         // He joins directly, so he is an accepted member
         this.statusMember = MembershipStatus.ACCEPTED;
-        this.joinedDate = LocalDate.now();
     }
 
     //  JOIN A ROOMSHARE
@@ -82,8 +71,6 @@ public class Roomie extends Person{
 
         this.roomshare = roomshare;
         this.statusMember = MembershipStatus.PENDING;
-        // The owner did not accept yet, so there is no joined date
-        this.joinedDate = null;
     }
 
     // The whole "join a roomshare" use case. The API only calls this method

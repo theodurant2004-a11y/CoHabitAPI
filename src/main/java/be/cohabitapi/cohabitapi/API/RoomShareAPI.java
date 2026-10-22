@@ -97,9 +97,8 @@ public class RoomShareAPI {
                     roomie.getStatusMember().name().toLowerCase(Locale.ROOT), // PENDING becomes "pending"
                     roomie.getRoomshare().getName());
 
-            return Response.status(Response.Status.CREATED)
-                    .entity(Collections.singletonMap("joinRequest", resp))
-                    .build();
+            // 200 OK: nothing is created.the state of an existing roomie changes
+            return Response.ok(Collections.singletonMap("joinRequest", resp)).build();
 
         } catch (IllegalArgumentException e) {
             // 400: the key or the email is not valid
@@ -122,7 +121,7 @@ public class RoomShareAPI {
             return error(Response.Status.CONFLICT, e.getMessage());
 
         } catch (RuntimeException e) {
-            // 500: log the cause for us, the client only gets a generic message
+            // 500: anything unexpected but  the client  gets a generic message
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
         }
     }
