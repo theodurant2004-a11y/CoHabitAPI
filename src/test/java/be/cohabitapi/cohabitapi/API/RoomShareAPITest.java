@@ -173,4 +173,58 @@ class RoomShareAPITest {
             assertEquals("Server error", messageOf(response));
         }
     }
+
+
+    //==============================JOIN: MORE CASES==============================
+
+    @Test
+    @DisplayName("join: null request -> 400, DAOs never called")
+    void join_nullRequest_returns400() {
+        try (Response response = api.joinRoomShare(null)) {
+            assertEquals(400, response.getStatus());
+        }
+        verifyNoInteractions(personDAO, roomShareDAO);
+    }
+
+    @Test
+    @DisplayName("join: blank email -> 400 'Email is required'")
+    void join_blankEmail_returns400() {
+        try (Response response = api.joinRoomShare(request(KEY, "   "))) {
+            assertEquals(400, response.getStatus());
+            assertEquals("Email is required", messageOf(response));
+        }
+        verifyNoInteractions(personDAO, roomShareDAO);
+    }
+
+    @Test
+    @DisplayName("join: key in lowercase with spaces -> accepted (the model cleans it)")
+    void join_messyKey_returns200() {
+        // Arrange: the fake DAO only knows the CLEAN key
+        Roomie roomie = new Roomie("Martin", "Bob", EMAIL, "Test1234!");
+        RoomShare roomshare = new RoomShare(KEY, "Belleville", new Owner("Doe", "Alice", "a@test.be", "Test1234!"));
+        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+        when(roomShareDAO.findByInvitationKey(KEY)).thenReturn(roomshare);
+
+        // Act: messy value on purpose
+        try (Response response = api.joinRoomShare(request("  abc123 ", EMAIL))) {
+            // Assert
+            assertEquals(200, response.getStatus());
+        }
+        verify(roomShareDAO).findByInvitationKey(KEY);
+    }
+
+    @Test
+    @DisplayName("join: roomie already accepted in a roomshare -> 409")
+    void join_alreadyAccepted_returns409() {
+        // Arrange: this roomie is already a member
+        RoomShare roomshare = new RoomShare(KEY, "Belleville", new Owner("Doe", "Alice", "a@test.be", "Test1234!"));
+        Roomie roomie = new Roomie("Martin", "Bob", EMAIL, "Test1234!", roomshare);
+        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+        when(roomShareDAO.findByInvitationKey(KEY)).thenReturn(roomshare);
+
+        try (Response response = api.joinRoomShare(request(KEY, EMAIL))) {
+            assertEquals(409, response.getStatus());
+        }
+        verify(personDAO, never()).update(any());
+    }
 }

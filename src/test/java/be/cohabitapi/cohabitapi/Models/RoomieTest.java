@@ -265,4 +265,35 @@ class RoomieTest {
         // The second request must not be saved
         verify(personDAO, never()).update(any());
     }
+
+
+    //==============================requestToJoin: MORE ERRORS==============================
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    @DisplayName("requestToJoin: null, empty or blank email -> IllegalArgumentException, DAOs never called")
+    void requestToJoin_blankEmail_throws(String email) {
+        // Act
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> Roomie.requestToJoin(email, KEY, personDAO, roomShareDAO));
+
+        // Assert: the message comes from Person.normalizeEmail and nothing was searched
+        assertEquals("Email is required", e.getMessage());
+        verifyNoInteractions(personDAO, roomShareDAO);
+    }
+
+    @Test
+    @DisplayName("requestToJoin: roomie already accepted in a roomshare -> AlreadyInRoomshareException, nothing saved")
+    void requestToJoin_alreadyAccepted_throws() {
+        // Arrange: this roomie is already a member of a roomshare
+        Roomie roomie = new Roomie("Martin", "Bob", EMAIL, PASSWORD, roomshare());
+        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+        when(roomShareDAO.findByInvitationKey(KEY)).thenReturn(roomshare());
+
+        // Act + Assert
+        assertThrows(AlreadyInRoomshareException.class,
+                () -> Roomie.requestToJoin(EMAIL, KEY, personDAO, roomShareDAO));
+        verify(personDAO, never()).update(any());
+    }
 }
