@@ -8,6 +8,11 @@ public class UserResponse {
     private String email;
     private String role;
 
+    // Information about the roomshare of the user, it's null when he has none
+    // Only filled at the login and roomie gets his status ("none", "pending" or "accepted")
+    private String membershipStatus;
+    private String roomshareName;
+
     public Integer getId_person() {
         return id_person;
     }
@@ -46,6 +51,23 @@ public class UserResponse {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+
+    public String getMembershipStatus() {
+        return membershipStatus;
+    }
+
+    public void setMembershipStatus(String membershipStatus) {
+        this.membershipStatus = membershipStatus;
+    }
+
+    public String getRoomshareName() {
+        return roomshareName;
+    }
+
+    public void setRoomshareName(String roomshareName) {
+        this.roomshareName = roomshareName;
     }
 
     public UserResponse(){}
