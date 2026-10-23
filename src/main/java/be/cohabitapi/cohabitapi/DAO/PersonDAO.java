@@ -72,4 +72,34 @@ public class PersonDAO extends DAO<Person>{
             em.close();
         }
     }
+
+    // Saves the changes made on an existing person (for example a roomie who asks to join a roomshare)
+    // update() is for a person that is already in the database.
+    public void update(Person person) {
+        EntityManager em = JpaUtil.createEntityManager();
+
+        try {
+            EntityTransaction transaction = em.getTransaction();
+            try {
+                // A transaction groups the changes: everything is saved, or nothing
+                transaction.begin();
+
+                // merge, because the person was loaded by another EntityManager (which is closed now).
+                // An object in that state is "detached": persist would not work, merge copies it into this EntityManager.
+                em.merge(person);
+
+                // The real UPDATE is sent to the database here
+                transaction.commit();
+            } catch (RuntimeException e) {
+                // If something failed, cancel the changes
+                if(transaction.isActive()){
+                    transaction.rollback();
+                }
+
+                throw e;
+            }
+        } finally {
+            em.close();
+        }
+    }
 }
