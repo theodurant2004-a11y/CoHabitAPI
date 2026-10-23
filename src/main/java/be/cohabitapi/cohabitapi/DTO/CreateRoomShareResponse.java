@@ -52,8 +52,6 @@ public class CreateRoomShareResponse {
     public CreateRoomShareResponse() {
     }
 
-    public CreateRoomShareResponse(int id, String invitationKey, String name, LocalDate creationDate, int ownerId) {}
-
     public CreateRoomShareResponse(Integer id, String invitationKey, String name, LocalDate creationDate, Integer ownerId) {
 
         this.id = id;
