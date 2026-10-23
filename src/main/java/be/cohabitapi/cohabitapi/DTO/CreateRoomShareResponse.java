@@ -53,6 +53,7 @@ public class CreateRoomShareResponse {
     }
 
     public CreateRoomShareResponse(Integer id, String invitationKey, String name, LocalDate creationDate, Integer ownerId) {
+
         this.id = id;
         this.invitationKey = invitationKey;
         this.name = name;
@@ -61,5 +62,4 @@ public class CreateRoomShareResponse {
         this.creationDate = creationDate.toString();
         this.ownerId = ownerId;
     }
-
 }
