@@ -1,5 +1,7 @@
 package be.cohabitapi.cohabitapi.Models;
 
+import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStringAttribute;
+
 import be.cohabitapi.cohabitapi.DAO.DAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import jakarta.persistence.*;
@@ -40,6 +42,9 @@ public class RoomShare {
 
     @OneToMany(mappedBy = "roomshare") // Make the bi-directionnal link with the roomie
     private final List<Roomie> roomies = new ArrayList<>();
+
+    @OneToOne(mappedBy = "roomshare")
+    private ShoppingList shoppingList;
 
 
     // ------------------------- Getters and Setters --------------------------------------------------
@@ -88,13 +93,19 @@ public class RoomShare {
         return roomies;
     }
 
+    public ShoppingList getShoppingList() { return shoppingList; }
+
+    public void setShoppingList(ShoppingList shoppingList) {
+        Objects.requireNonNull(shoppingList);
+        shoppingList.setRoomShare(this);
+        this.shoppingList = shoppingList;
+    }
 
     // ------------------------- Constructors --------------------------------------------------
 
     // Not in public so as not to allow outsiders to use this empty constructor
     // Not in private because Hibernate needs to use this empty constructor
-    protected RoomShare() {
-    }
+    protected RoomShare() {}
 
     // Constructor used for the RoomShare creation form
     public RoomShare(String key, String name, Owner owner) {
@@ -108,21 +119,6 @@ public class RoomShare {
 
 
     // ------------------------- Utility methods --------------------------------------------------
-
-    // Trim any string attribute and checks if they are null, empty or upper than the max length
-    private static String normalizeStringAttribute(String attribute, String attributeName, int maxLength){
-        if (attribute == null)
-            throw new IllegalArgumentException("The " + attributeName + " cannot be null");
-
-        String trimmed = attribute.trim();
-
-        if (trimmed.isEmpty())
-            throw new IllegalArgumentException("The " + attributeName + " cannot be empty");
-        if (trimmed.length() > maxLength)
-            throw new IllegalArgumentException("The " + attributeName + " cannot be longer than " + maxLength + " characters");
-
-        return trimmed;
-    }
 
     // We create our own method to generate de invitation key
     // We choose to have an invitation key of 6 characters
@@ -159,4 +155,6 @@ public class RoomShare {
     // ------------------------- DAO methods --------------------------------------------------
 
     public void create(DAO<RoomShare> dao) { dao.create(this); }
+
+    public static RoomShare findById(RoomShareDAO dao, Integer id) { return dao.findById(id); }
 }
