@@ -1,6 +1,5 @@
 package be.cohabitapi.cohabitapi.Models;
 
-import jakarta.persistence.*;
 import be.cohabitapi.cohabitapi.DAO.ExpenseDAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import jakarta.persistence.*;
@@ -8,10 +7,13 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeSet;
 
-import java.time.LocalDate;
 
 // One thing we need to make clear is that one Expense is a debt: we can see it as : a roomie (the debtor) owes a sum to the roomie who paid (the creditor)
 // Ex :groceries of 45 euros paid by Nora and shared by Arnaud, Manoah and Hom nix
@@ -172,7 +174,129 @@ public class Expense {
         return debts;
     }
 
-    // Utility methods
+    // see my expenses
+    // This method is used to get all the debts of the roomshare of a roomie
+    public static List<Expense> findAllOfRoomshare(Roomie me, ExpenseDAO expenseDAO) {
+        return expenseDAO.findByRoomshare(me.getRoomshare().getId());
+    }
+
+    // This method keeps only the debts that concern me
+    public static List<Expense> keepMine(Roomie me, List<Expense> all) {
+        List<Expense> mine = new ArrayList<>();
+
+        for (Expense expense : all) {
+            if (expense.concerns(me))
+                mine.add(expense);
+        }
+
+        return mine;
+    }
+
+    // The total i have to pay so its only the debts not settled count
+    public static double calculateToPay(Roomie me, List<Expense> all) {
+        long cents = 0;
+
+        for (Expense expense : all) {
+            if (!expense.settled && expense.debtor.getIdPerson().equals(me.getIdPerson()))
+                cents += expense.getSumInCents();
+        }
+
+        return cents / 100.0;
+    }
+
+    // The total the others have to give me so only the debts not settled count
+    public static double calculateToReceive(Roomie me, List<Expense> all) {
+        long cents = 0;
+
+        for (Expense expense : all) {
+            if (!expense.settled && expense.creditor != null
+                    && expense.creditor.getIdPerson().equals(me.getIdPerson()))
+                cents += expense.getSumInCents();
+        }
+
+        return cents / 100.0;
+    }
+
+    // This method gives the balance of each roomie in cents
+    // if its positive => he is owed money and if its negative => he owes money
+    public static Map<Integer, Long> calculateBalances(List<Roomie> roomies, List<Expense> all) {
+        Map<Integer, Long> balances = new LinkedHashMap<>();
+
+        // Everybody starts with 0
+        for (Roomie roomie : roomies) {
+            balances.put(roomie.getIdPerson(), 0L);
+        }
+
+        for (Expense expense : all) {
+            if (!expense.settled) {
+                long cents = expense.getSumInCents();
+                Integer debtorId = expense.debtor.getIdPerson();
+
+                // The debtor loses the sum
+                if (balances.containsKey(debtorId))
+                    balances.merge(debtorId, -cents, Long::sum);
+
+                // and the creditor gets it
+                if (expense.creditor != null && balances.containsKey(expense.creditor.getIdPerson()))
+                    balances.merge(expense.creditor.getIdPerson(), cents, Long::sum);
+            }
+        }
+
+        return balances;
+    }
+
+    // This method suggests a few refunds to settle everything : the roomie who owes the most pays
+    // A refund is an Expense that is NOT saved in the db
+    public static List<Expense> suggestRefunds(List<Roomie> roomies, Map<Integer, Long> balances) {
+        List<Roomie> debtors = new ArrayList<>();
+        List<Roomie> creditors = new ArrayList<>();
+
+        // We separate the roomies who owe money from the ones who are owed money
+        for (Roomie roomie : roomies) {
+            long cents = balances.get(roomie.getIdPerson());
+            if (cents < 0) debtors.add(roomie);
+            else if (cents > 0) creditors.add(roomie);
+        }
+
+        // The one who owes the most is first, and the one who is owed the most is first
+        debtors.sort(Comparator.comparingLong(roomie -> balances.get(roomie.getIdPerson())));
+        creditors.sort(Comparator.comparingLong((Roomie roomie) -> balances.get(roomie.getIdPerson())).reversed());
+
+        // What is left to pay/to receive so we work on a copy, the real balances do not change
+        Map<Integer, Long> left = new HashMap<>(balances);
+        List<Expense> refunds = new ArrayList<>();
+        int d = 0;
+        int c = 0;
+
+        while (d < debtors.size() && c < creditors.size()) {
+            Roomie debtor = debtors.get(d);
+            Roomie creditor = creditors.get(c);
+
+            // The refund is the smallest of the two: what the debtor owes, what the creditor is owed
+            long amount = Math.min(-left.get(debtor.getIdPerson()), left.get(creditor.getIdPerson()));
+
+            refunds.add(new Expense("Refund", amount / 100.0, LocalDate.now(),
+                    ExpenseCategory.OTHER.getCode(), debtor, creditor));
+
+            left.put(debtor.getIdPerson(), left.get(debtor.getIdPerson()) + amount);
+            left.put(creditor.getIdPerson(), left.get(creditor.getIdPerson()) - amount);
+
+            // A roomie with nothing left to pay or to receive is doneand we go to the next one
+            if (left.get(debtor.getIdPerson()) == 0) d++;
+            if (left.get(creditor.getIdPerson()) == 0) c++;
+        }
+
+        return refunds;
+    }
+
+    // Utility methods :
+
+    // True if I am the debtor or the creditor of this debt
+    private boolean concerns(Roomie me) {
+        boolean iAmDebtor = debtor.getIdPerson().equals(me.getIdPerson());
+        boolean iAmCreditor = creditor != null && creditor.getIdPerson().equals(me.getIdPerson());
+        return iAmDebtor || iAmCreditor;
+    }
 
     // Checks the description, required and 50 characters max. And removes the spaces around it
     private static String normalizeName(String description) {
