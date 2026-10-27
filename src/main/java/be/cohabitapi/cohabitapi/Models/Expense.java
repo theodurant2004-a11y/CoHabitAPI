@@ -1,6 +1,15 @@
 package be.cohabitapi.cohabitapi.Models;
 
 import jakarta.persistence.*;
+import be.cohabitapi.cohabitapi.DAO.ExpenseDAO;
+import be.cohabitapi.cohabitapi.DAO.PersonDAO;
+import jakarta.persistence.*;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.TreeSet;
 
 import java.time.LocalDate;
 
@@ -106,8 +115,65 @@ public class Expense {
         this.settled = false;
     }
 
+    // add an expense
+
+    // This method is the whole "add an expense" use case, hte API only calls this method
+    // It creates one debt for each roomie of the split (except the one who paid) and saves them together
+    public static List<Expense> addExpense(String roomieEmail, String description, Double amount, String date,
+                                           Integer paidById, String category, List<Integer> sharedWithIds,
+                                           PersonDAO personDAO, ExpenseDAO expenseDAO) {
+        // 1. Weclean and check what the user sent,each method throws an IllegalArgumentException
+        String cleanName = normalizeName(description);
+        long totalCents = toCents(amount);
+        LocalDate cleanDate = parseDate(date);
+        String cleanType = ExpenseCategory.fromCode(category).getCode();
+
+        if (paidById == null)
+            throw new IllegalArgumentException("The roomie who paid is required.");
+        if (sharedWithIds == null || sharedWithIds.isEmpty() || sharedWithIds.contains(null))
+            throw new IllegalArgumentException("Choose at least one roomie to split with.");
+
+        // 2. we find the roomie who is signed in and check that he is a member of a roomshare
+        Roomie me = Roomie.findAcceptedMember(roomieEmail, personDAO);
+
+        // 3. The roomies of his roomshare, the one who paid and the ones of the split must be in it
+        List<Roomie> members = me.findRoomies(personDAO);
+        Roomie payer = findById(members, paidById);
+
+        // A TreeSet removes the duplicates and sorts the ids so the split is always the same
+        List<Roomie> sharers = new ArrayList<>();
+        for (Integer id : new TreeSet<>(sharedWithIds)) {
+            sharers.add(findById(members, id));
+        }
+
+        // 4. we divide the total in cents. 1000 cents between 3 = 334 + 333 + 333:
+        // the first roomies of the list get one more cent until nothing is left, so the total is exact
+        int count = sharers.size();
+        long baseCents = totalCents / count;
+        long remainder = totalCents % count;
+
+        List<Expense> debts = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            long shareCents = baseCents + (i < remainder ? 1 : 0);
+            Roomie sharer = sharers.get(i);
+
+            // The roomie who paid does not owe money to himself so no debt for him
+            if (!sharer.getIdPerson().equals(payer.getIdPerson())) {
+                debts.add(new Expense(cleanName, shareCents / 100.0, cleanDate, cleanType, sharer, payer));
+            }
+        }
+
+        if (debts.isEmpty())
+            throw new IllegalArgumentException("Choose at least one other roomie than the one who paid.");
+
+        // 5. Save all the debts in one transaction: everything is saved, or nothing
+        expenseDAO.createAll(debts);
+
+        return debts;
+    }
 
     // Utility methods
+
     // Checks the description, required and 50 characters max. And removes the spaces around it
     private static String normalizeName(String description) {
         if (description == null || description.trim().isEmpty())
@@ -119,5 +185,37 @@ public class Expense {
             throw new IllegalArgumentException("The description cannot be longer than 50 characters.");
 
         return trimmed;
+    }
+
+
+    // Searches a roomie in the list with his id. If he is not there, he is not in my roomshare (400)
+    private static Roomie findById(List<Roomie> members, Integer id) {
+        for (Roomie roomie : members) {
+            if (roomie.getIdPerson().equals(id))
+                return roomie;
+        }
+        throw new IllegalArgumentException("A roomie of the list does not belong to your roomshare.");
+    }
+
+    // Checks the amount and gives it in cents
+    private static long toCents(Double amount) {
+        if (amount == null || amount.isNaN() || amount.isInfinite() || amount <= 0)
+            throw new IllegalArgumentException("The amount must be greater than 0.");
+        if (amount > 100000)
+            throw new IllegalArgumentException("The amount is too high.");
+
+        return Math.round(amount * 100);
+    }
+
+    // Transforms the text "2026-10-20" into a date. the format is the one of the input type="date"
+    private static LocalDate parseDate(String date) {
+        if (date == null || date.trim().isEmpty())
+            throw new IllegalArgumentException("The date is required.");
+
+        try {
+            return LocalDate.parse(date.trim());
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("The date must look like 2026-10-20.");
+        }
     }
 }
