@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeSet;
 
 
@@ -132,7 +133,8 @@ public class Expense {
 
         if (paidById == null)
             throw new IllegalArgumentException("The roomie who paid is required.");
-        if (sharedWithIds == null || sharedWithIds.isEmpty() || sharedWithIds.contains(null))
+        // we look for a null id with a stream because contains(null) crashes on an immutable list (List.of)
+        if (sharedWithIds == null || sharedWithIds.isEmpty() || sharedWithIds.stream().anyMatch(Objects::isNull))
             throw new IllegalArgumentException("Choose at least one roomie to split with.");
 
         // 2. we find the roomie who is signed in and check that he is a member of a roomshare
