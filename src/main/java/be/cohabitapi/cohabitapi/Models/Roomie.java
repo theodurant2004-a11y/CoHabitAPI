@@ -3,13 +3,13 @@ package be.cohabitapi.cohabitapi.Models;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
-import be.cohabitapi.cohabitapi.EXCEPTION.AlreadyInRoomshareException;
-import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
-import be.cohabitapi.cohabitapi.EXCEPTION.InvalidInvitationKeyException;
-import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
+import be.cohabitapi.cohabitapi.EXCEPTION.*;
 import jakarta.persistence.*;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 
 @Entity
 @Table(name = "Roomie")
@@ -28,6 +28,13 @@ public class Roomie extends Person{
     @Column(name = "roomie_status", nullable = false)
     private MembershipStatus statusMember = MembershipStatus.NONE;
 
+    // The tasks of this roomie (association with Task in the class diagram)
+    // mappedBy: the Task_Roomie table is managed by the "roomies" attribute of Task, this side only reads it
+    // No cascade: it is an association, not a composition (a task does not live inside a roomie)
+    @ManyToMany(mappedBy = "roomies")
+    private Set<Task> tasks = new HashSet<>();
+
+
     public RoomShare getRoomshare() {
         return roomshare;
     }
@@ -40,6 +47,11 @@ public class Roomie extends Person{
     // No setter for the status: they only change through the methods
     public MembershipStatus getStatusMember() {
         return statusMember;
+    }
+
+    // Read only: a task is assigned with Task.assignRoomie (which checks the rules), never from here
+    public Set<Task> getTasks(){
+        return Collections.unmodifiableSet(tasks);
     }
 
     protected Roomie() {
@@ -127,5 +139,41 @@ public class Roomie extends Person{
             throw new IllegalArgumentException("The invitation key must contain exactly 6 letters or digits.");
 
         return clean;
+    }
+
+    // TASKS
+
+    // True if this roomie is an accepted member of this roomshare
+    // The roomie knows his status and his roomshare, so he answers himself (Task does not look inside him)
+    // We compare the ids: the two roomshares can be two different instances of the same roomshare
+    public boolean isAcceptedMemberOf(RoomShare roomshare) {
+        return roomshare != null
+                && this.statusMember == MembershipStatus.ACCEPTED
+                && this.roomshare != null
+                && this.roomshare.getId().equals(roomshare.getId());
+    }
+
+    // Finds a roomie by his email and checks that he is an accepted member of a roomshare
+    // Same idea as Owner.checkRightOwner, used by every task use case (add, list, update, delete)
+    public static Roomie checkAcceptedRoomie(String email, PersonDAO personDAO) {
+        // Same cleaning as the login (400 if empty)
+        String cleanEmail = Person.normalizeEmail(email);
+        Person person = Person.findByEmail(cleanEmail, personDAO);
+
+        // Nobody has this email (the API answers 401)
+        if (person == null)
+            throw new UserNotFoundException();
+
+        // An owner cannot manage tasks (403)
+        if (!(person instanceof Roomie))
+            throw new ForbiddenRoleException();
+
+        Roomie roomie = (Roomie) person;
+
+        // No roomshare yet, or the join request is still pending (403)
+        if (!roomie.isAcceptedMemberOf(roomie.getRoomshare()))
+            throw new NotInRoomshareException();
+
+        return roomie;
     }
 }

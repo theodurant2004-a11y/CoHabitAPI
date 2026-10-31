@@ -7,12 +7,14 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import be.cohabitapi.cohabitapi.Models.Person;
-import java.util.List;
-import java.util.Locale;
+
+import java.util.*;
+
 
 @ApplicationScoped
 public class PersonDAO extends DAO<Person>{
 
+    //
     @Override
     public void create(Person person){
         EntityManager em = JpaUtil.createEntityManager();
@@ -98,6 +100,23 @@ public class PersonDAO extends DAO<Person>{
 
                 throw e;
             }
+        } finally {
+            em.close();
+        }
+    }
+
+    public List<Roomie> findRoomiesByIds(Collection<Integer> ids){
+        //Oracle refuses a IN() with a empty list
+        if(ids == null || ids.isEmpty()){
+            return new ArrayList<>();
+        }
+
+        EntityManager em = JpaUtil.createEntityManager();
+
+        try {
+            return em.createQuery("select r from Roomie r where r.idPerson IN :ids", Roomie.class)
+                    .setParameter("ids", ids)
+                    .getResultList();
         } finally {
             em.close();
         }

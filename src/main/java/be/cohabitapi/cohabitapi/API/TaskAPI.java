@@ -1,0 +1,80 @@
+package be.cohabitapi.cohabitapi.API;
+
+import be.cohabitapi.cohabitapi.DAO.PersonDAO;
+import be.cohabitapi.cohabitapi.DAO.TaskDAO;
+import be.cohabitapi.cohabitapi.DTO.TaskCreateRequest;
+import be.cohabitapi.cohabitapi.DTO.TaskResponse;
+import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
+import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
+import be.cohabitapi.cohabitapi.Models.Task;
+import static be.cohabitapi.cohabitapi.API.APIResponse.error;
+
+import jakarta.inject.Inject;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import java.util.Collections;
+
+// Every route about the tasks of a roomshare
+// The full URL is /api/tasks
+@Path("/tasks")
+public class TaskAPI {
+
+    @Inject
+    private PersonDAO personDAO;
+    @Inject
+    private TaskDAO taskDAO;
+
+    // ADD A TASK : POST /api/tasks
+    // Only an accepted roomie can add a task, in his own roomshare
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response createTask(TaskCreateRequest req) {
+
+        // No body at all: 400
+        if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
+
+        try {
+            // The model does all the work (checks, roomies, save)
+            Task task = Task.create(
+                    req.getRoomieEmail(),
+                    req.getName(),
+                    req.getDescription(),
+                    req.getDueDate(),
+                    req.getStatus(),
+                    req.getRoomieIds(),
+                    personDAO,
+                    taskDAO);
+
+            // We answer with a DTO, never with the real model
+            TaskResponse resp = new TaskResponse(task);
+
+            // 201 CREATED: a new task exists in the db
+            return Response.status(Response.Status.CREATED)
+                    .entity(Collections.singletonMap("task", resp))
+                    .build();
+
+        } catch (UserNotFoundException e) {
+            // 401: neutral message, so nobody can find out which emails have an account
+            return error(Response.Status.UNAUTHORIZED, "Authentication required.");
+
+        } catch (ForbiddenRoleException e) {
+            // 403: an owner cannot add a task
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+
+        } catch (NotInRoomshareException e) {
+            // 403: the roomie has no roomshare or his request is still pending
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+
+        } catch (IllegalArgumentException e) {
+            // 400: a business rule is broken in the model (name, date, status, roomies...)
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+
+        } catch (RuntimeException e) {
+            // 500: anything unexpected, the client only gets a generic message
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
+        }
+    }
+}
