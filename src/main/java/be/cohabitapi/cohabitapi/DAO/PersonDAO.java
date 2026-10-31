@@ -7,6 +7,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import be.cohabitapi.cohabitapi.Models.Person;
+import be.cohabitapi.cohabitapi.Models.MembershipStatus;
 import java.util.List;
 import java.util.Locale;
 
@@ -98,6 +99,49 @@ public class PersonDAO extends DAO<Person>{
 
                 throw e;
             }
+        } finally {
+            em.close();
+        }
+    }
+
+    //--------------- ACCEPT A ROOMIE -------------------
+
+    // Finds a person with his id (null if nobody has this id)
+    // Used when the owner answers a request: the front only sends the id of the roomie
+    public Person findById(Integer id) {
+        // One EntityManager per call, like the other methods
+        EntityManager em = JpaUtil.createEntityManager();
+
+        try {
+            // find() searches with the primary key, no need to write a query
+            // We ask a Person, but with the JOINED inheritance JPA gives back the real subclass (Owner or Roomie)
+            // The roomshare of the roomie and the owner of the roomshare are @ManyToOne,
+            // so they are loaded at the same time (EAGER): we can use them after em.close()
+            return em.find(Person.class, id);
+        } finally {
+            // We always need to close the EntityManager, even if there is an error
+            em.close();
+        }
+    }
+
+    // Finds all the roomies waiting for an answer in the roomshare of this owner
+    // Used to show the "Waiting for approval" list of the Members page
+    public List<Roomie> findPendingRoomiesByOwner(Integer ownerId) {
+        // One EntityManager per call
+        EntityManager em = JpaUtil.createEntityManager();
+
+        try {
+            // Here we work on the Java classes and not the tables:
+            // r.roomshare.owner.idPerson follows the links between the objects, JPA writes the SQL joins for us
+            // :ownerId and :status are parameters, so there is no sql injection
+            return em.createQuery(
+                            "SELECT r FROM Roomie r WHERE r.roomshare.owner.idPerson = :ownerId AND r.statusMember = :status",
+                            Roomie.class)
+                    .setParameter("ownerId", ownerId)
+                    // We give the enum directly: the converter of MembershipStatus turns PENDING into 2 for the db
+                    .setParameter("status", MembershipStatus.PENDING)
+                    // getResultList: an empty list if there is no request (no exception)
+                    .getResultList();
         } finally {
             em.close();
         }
