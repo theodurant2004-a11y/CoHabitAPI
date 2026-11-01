@@ -31,9 +31,6 @@ public class ExpenseAPI {
     private ExpenseDAO expenseDAO;
 
 
-    // colors given to the roomies in the order of the list (a roomie always keeps the same color)
-    private static final String[] COLORS = {"#c17f2e", "#2e8b57", "#6a5acd", "#d1495b", "#00798c"};
-
     // to see my expenses, gives everything the page "Expenses" of a roomie needs
     // TODO : remove the email when the session system is efficient (the API will know who is calling)
     @GET
@@ -133,20 +130,16 @@ public class ExpenseAPI {
         List<ExpensesResponse.MemberResponse> members = new ArrayList<>();
         List<ExpensesResponse.BalanceResponse> balanceList = new ArrayList<>();
 
-        // the biggest balance, + or - gets a bar of 100%
-        long biggest = 0;
-        for (long cents : balances.values()) {
-            biggest = Math.max(biggest, Math.abs(cents));
-        }
-
         for (int i = 0; i < roomies.size(); i++) {
             Roomie roomie = roomies.get(i);
-            String color = COLORS[i % COLORS.length];
+            String color = Expense.colorOf(i);
             long cents = balances.get(roomie.getIdPerson());
-            int percent = biggest == 0 ? 0 : (int) Math.round(Math.abs(cents) * 100.0 / biggest);
+            int percent = Expense.calculatePercent(cents, balances);
+            String sign = Expense.signOf(cents);
 
             members.add(new ExpensesResponse.MemberResponse(roomie.getIdPerson(), fullName(roomie), color));
-            balanceList.add(new ExpensesResponse.BalanceResponse(fullName(roomie), color, cents / 100.0, percent));
+            balanceList.add(new ExpensesResponse.BalanceResponse(
+                    fullName(roomie), color, Expense.centsToEuros(cents), percent, sign));
         }
 
         List<ExpensesResponse.CategoryResponse> categories = new ArrayList<>();
@@ -175,7 +168,8 @@ public class ExpenseAPI {
         }
 
         return new ExpensesResponse(me.getIdPerson(), members, categories,
-                new ExpensesResponse.SummaryResponse(toPay, toReceive),
+                new ExpensesResponse.SummaryResponse(toPay, toReceive,
+                        Expense.hasAmount(toPay), Expense.hasAmount(toReceive)),
                 expenses, balanceList, refundList);
     }
 

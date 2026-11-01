@@ -109,6 +109,12 @@ class ExpenseAPITest {
         assertEquals("2026-10-29", body.expenses().get(0).date());
         assertEquals(1, body.refunds().size());
         assertFalse(body.categories().isEmpty());
+        // the sign, the bar and the colors are prepared by the model
+        assertEquals("positive", body.balances().get(0).sign());
+        assertEquals("negative", body.balances().get(1).sign());
+        assertEquals(100, body.balances().get(0).percent());
+        assertTrue(body.summary().hasToReceive());
+        assertFalse(body.summary().hasToPay());
     }
 
     @Test

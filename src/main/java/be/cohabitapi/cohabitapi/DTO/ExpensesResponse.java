@@ -16,7 +16,7 @@ public record ExpensesResponse(
 
     public record CategoryResponse(String code, String label, String icon) {}
 
-    public record SummaryResponse(Double toPay, Double toReceive) {}
+    public record SummaryResponse(Double toPay, Double toReceive, boolean hasToPay, boolean hasToReceive) {}
 
     // One line = one debt: debtor owes amount to creditor
     // status = "pending" or "settled"
@@ -24,7 +24,7 @@ public record ExpensesResponse(
                                   String debtor, String creditor, String icon, String status) {}
 
     // percent = width of the bar,the biggest balance has 100
-    public record BalanceResponse(String name, String color, Double amount, Integer percent) {}
+    public record BalanceResponse(String name, String color, Double amount, Integer percent, String sign) {}
 
     public record RefundResponse(String from, String to, Double amount) {}
 }
