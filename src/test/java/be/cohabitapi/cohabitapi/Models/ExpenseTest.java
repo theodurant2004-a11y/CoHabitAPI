@@ -469,4 +469,45 @@ class ExpenseTest {
 
         assertTrue(Expense.suggestRefunds(List.of(me, second, third), balances).isEmpty());
     }
+
+    // ------------------------- Display --------------------------------------------------
+
+    @Test
+    void calculatePercent_theBiggestBalanceGets100AndTheOthersAreComparedToIt() {
+        Map<Integer, Long> balances = Map.of(1, 2000L, 2, -1000L, 3, -1000L);
+
+        assertEquals(100, Expense.calculatePercent(2000L, balances));
+        assertEquals(50, Expense.calculatePercent(-1000L, balances));
+    }
+
+    @Test
+    void calculatePercent_allBalancesAtZero_gives0() {
+        Map<Integer, Long> balances = Map.of(1, 0L, 2, 0L);
+
+        assertEquals(0, Expense.calculatePercent(0L, balances));
+    }
+
+    @Test
+    void colorOf_startsAgainAfterTheLastColor() {
+        assertNotEquals(Expense.colorOf(0), Expense.colorOf(1));
+        assertEquals(Expense.colorOf(0), Expense.colorOf(5));
+    }
+
+    @Test
+    void signOf_negativeWhenTheRoomieOwesMoney() {
+        assertEquals("negative", Expense.signOf(-1L));
+        assertEquals("positive", Expense.signOf(1L));
+        assertEquals("positive", Expense.signOf(0L));
+    }
+
+    @Test
+    void hasAmount_trueOnlyWhenMoreThanZero() {
+        assertTrue(Expense.hasAmount(0.01));
+        assertFalse(Expense.hasAmount(0.0));
+    }
+
+    @Test
+    void centsToEuros_transformsCentsIntoEuros() {
+        assertEquals(4.5, Expense.centsToEuros(450L), 0.001);
+    }
 }

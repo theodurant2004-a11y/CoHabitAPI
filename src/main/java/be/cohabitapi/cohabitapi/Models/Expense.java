@@ -64,6 +64,9 @@ public class Expense {
     @JoinColumn(name = "user_id_1")
     private Person creditor;
 
+    // The colors given to the roomies in the order of the list
+    private static final String[] COLORS = {"#c17f2e", "#2e8b57", "#6a5acd", "#d1495b", "#00798c"};
+
 
     // Getters :
     // No setters: an expense is only created by the methods of this class
@@ -289,6 +292,43 @@ public class Expense {
         }
 
         return refunds;
+    }
+
+    // Methods used to prepare the display
+
+    // This method gives the width of the bar of a balance, in percent
+    // The biggest balance (+ or -) gets 100% and the others are compared to it
+    public static int calculatePercent(long cents, Map<Integer, Long> balances) {
+        long biggest = 0;
+        for (long balance : balances.values()) {
+            biggest = Math.max(biggest, Math.abs(balance));
+        }
+
+        if (biggest == 0)
+            return 0;
+
+        return (int) Math.round(Math.abs(cents) * 100.0 / biggest);
+    }
+
+    // This method gives the color of the roomie at this position in the list
+    public static String colorOf(int position) {
+        return COLORS[position % COLORS.length];
+    }
+
+    // This method gives the css class of a balance: "negative" if the roomie owes money, "positive" if not
+    public static String signOf(long cents) {
+        return cents < 0 ? "negative" : "positive";
+    }
+
+    // This method says if an amount is more than 0
+    // For example it is used to know if the roomie has something to pay or to receive
+    public static boolean hasAmount(double amount) {
+        return amount > 0;
+    }
+
+    // This method transforms cents into euros: 450 => 4.5
+    public static double centsToEuros(long cents) {
+        return cents / 100.0;
     }
 
     // Utility methods :
