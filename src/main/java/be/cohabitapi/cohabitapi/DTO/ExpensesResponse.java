@@ -16,7 +16,8 @@ public record ExpensesResponse(
 
     public record CategoryResponse(String code, String label, String icon) {}
 
-    public record SummaryResponse(Double toPay, Double toReceive, boolean hasToPay, boolean hasToReceive) {}
+    public record SummaryResponse(double toPay, double toReceive, boolean hasToPay, boolean hasToReceive,
+                                  double balance, String balanceStatus) {}
 
     // One line = one debt: debtor owes amount to creditor
     // status = "pending" or "settled"

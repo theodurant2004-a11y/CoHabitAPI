@@ -169,7 +169,8 @@ public class ExpenseAPI {
 
         return new ExpensesResponse(me.getIdPerson(), members, categories,
                 new ExpensesResponse.SummaryResponse(toPay, toReceive,
-                        Expense.hasAmount(toPay), Expense.hasAmount(toReceive)),
+                        Expense.hasAmount(toPay), Expense.hasAmount(toReceive),
+                        Expense.calculateMyBalance(me, balances), Expense.describeBalance(me, balances)),
                 expenses, balanceList, refundList);
     }
 

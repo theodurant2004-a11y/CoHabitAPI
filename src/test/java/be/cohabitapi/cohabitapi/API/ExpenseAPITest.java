@@ -115,6 +115,10 @@ class ExpenseAPITest {
         assertEquals(100, body.balances().get(0).percent());
         assertTrue(body.summary().hasToReceive());
         assertFalse(body.summary().hasToPay());
+
+        // my balance for the home page: the second roomie owes me 15 euros
+        assertEquals(15.0, body.summary().balance(), 0.001);
+        assertEquals("creditor", body.summary().balanceStatus());
     }
 
     @Test
