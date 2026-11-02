@@ -331,6 +331,26 @@ public class Expense {
         return cents / 100.0;
     }
 
+    // This method gives my balance in euros: what the others owe me minus what I owe
+    // It is positive if I am owed money and negative if I owe money
+    public static double calculateMyBalance(Roomie me, Map<Integer, Long> balances) {
+        return centsToEuros(balances.get(me.getIdPerson()));
+    }
+
+    // This method gives the text that goes with my balance:
+    // "creditor" if the others owe me money, "debtor" if I owe money, "balanced" if nobody owes anything
+    public static String describeBalance(Roomie me, Map<Integer, Long> balances) {
+        long cents = balances.get(me.getIdPerson());
+
+        String status = "balanced";
+        if (cents > 0) {
+            status = "creditor";
+        } else if (cents < 0) {
+            status = "debtor";
+        }
+        return status;
+    }
+
     // Utility methods :
 
     // True if I am the debtor or the creditor of this debt

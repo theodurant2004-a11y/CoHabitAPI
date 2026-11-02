@@ -510,4 +510,21 @@ class ExpenseTest {
     void centsToEuros_transformsCentsIntoEuros() {
         assertEquals(4.5, Expense.centsToEuros(450L), 0.001);
     }
+
+    @Test
+    void calculateMyBalance_isWhatTheOthersOweMeMinusWhatIOwe() {
+        Map<Integer, Long> balances = Map.of(1, 2000L, 2, -1000L, 3, -1000L);
+
+        assertEquals(20.0, Expense.calculateMyBalance(me, balances), 0.001);
+        assertEquals(-10.0, Expense.calculateMyBalance(second, balances), 0.001);
+    }
+
+    @Test
+    void describeBalance_creditorDebtorOrBalanced() {
+        Map<Integer, Long> balances = Map.of(1, 2000L, 2, -1000L, 3, 0L);
+
+        assertEquals("creditor", Expense.describeBalance(me, balances));
+        assertEquals("debtor", Expense.describeBalance(second, balances));
+        assertEquals("balanced", Expense.describeBalance(third, balances));
+    }
 }
