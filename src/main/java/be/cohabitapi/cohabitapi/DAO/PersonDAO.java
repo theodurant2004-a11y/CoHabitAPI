@@ -2,6 +2,8 @@ package be.cohabitapi.cohabitapi.DAO;
 
 import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
 import be.cohabitapi.cohabitapi.Models.Owner;
+import be.cohabitapi.cohabitapi.Models.MembershipStatus;
+import be.cohabitapi.cohabitapi.Models.RoomShare;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
@@ -141,6 +143,25 @@ public class PersonDAO extends DAO<Person>{
                     // We give the enum directly: the converter of MembershipStatus turns PENDING into 2 for the db
                     .setParameter("status", MembershipStatus.PENDING)
                     // getResultList: an empty list if there is no request (no exception)
+                    .getResultList();
+        } finally {
+            em.close();
+        }
+    }
+
+
+    // This method is used to get the roomies that are in a roomshare
+    // They are always in the same order (by id), so the colors of the roomies never change
+    // We use a query (and not roomshare.getRoomies()) because that list is lazy so it cannot be read here
+    public List<Roomie> findAcceptedRoomies(RoomShare roomshare) {
+        EntityManager em = JpaUtil.createEntityManager();
+
+        try {
+            return em.createQuery(
+                            "SELECT r FROM Roomie r WHERE r.roomshare.id = :id AND r.statusMember = :status "
+                                    + "ORDER BY r.idPerson", Roomie.class)
+                    .setParameter("id", roomshare.getId())
+                    .setParameter("status", MembershipStatus.ACCEPTED)
                     .getResultList();
         } finally {
             em.close();

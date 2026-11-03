@@ -7,12 +7,13 @@ import be.cohabitapi.cohabitapi.EXCEPTION.AlreadyInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidInvitationKeyException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NoPendingRequestException;
 import be.cohabitapi.cohabitapi.EXCEPTION.JoinRequestNotFoundException;
 import jakarta.persistence.*;
 
-import java.util.List;
 import java.util.Locale;
+import java.util.List;
 import java.util.Objects;
 
 @Entity
@@ -115,6 +116,34 @@ public class Roomie extends Person{
         personDAO.update(roomie);
 
         return roomie;
+    }
+
+    // This method is used to find the roomie who is signed in and to check that he can use the expenses
+    // We do this because an owner or an unknown email or a roomie not accepted yet must be refused
+    public static Roomie findAcceptedMember(String email, PersonDAO personDAO) {
+        String cleanEmail = normalizeEmail(email);
+        Person person = Person.findByEmail(cleanEmail, personDAO);
+
+        // Nobody has this email (the API answers 401)
+        if (person == null)
+            throw new UserNotFoundException();
+
+        // An owner is not a roomie (403)
+        if (!(person instanceof Roomie))
+            throw new ForbiddenRoleException();
+
+        Roomie roomie = (Roomie) person;
+
+        // No roomshare, or the owner did not accept him yet (403)
+        if (roomie.getRoomshare() == null || roomie.getStatusMember() != MembershipStatus.ACCEPTED)
+            throw new NotInRoomshareException();
+
+        return roomie;
+    }
+
+    // This method is used to get all the accepted roomies of my roomshare (me included)
+    public List<Roomie> findRoomies(PersonDAO personDAO) {
+        return personDAO.findAcceptedRoomies(roomshare);
     }
 
     // Cleans the invitation key and checks that it is valid
