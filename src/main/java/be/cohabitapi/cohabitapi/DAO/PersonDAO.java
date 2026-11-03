@@ -1,12 +1,10 @@
 package be.cohabitapi.cohabitapi.DAO;
 
 import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
-import be.cohabitapi.cohabitapi.Models.Owner;
-import be.cohabitapi.cohabitapi.Models.Roomie;
+import be.cohabitapi.cohabitapi.Models.*;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
-import be.cohabitapi.cohabitapi.Models.Person;
 
 import java.util.*;
 
@@ -14,7 +12,6 @@ import java.util.*;
 @ApplicationScoped
 public class PersonDAO extends DAO<Person>{
 
-    //
     @Override
     public void create(Person person){
         EntityManager em = JpaUtil.createEntityManager();
@@ -105,6 +102,8 @@ public class PersonDAO extends DAO<Person>{
         }
     }
 
+    // TASK
+
     public List<Roomie> findRoomiesByIds(Collection<Integer> ids){
         //Oracle refuses a IN() with a empty list
         if(ids == null || ids.isEmpty()){
@@ -116,6 +115,23 @@ public class PersonDAO extends DAO<Person>{
         try {
             return em.createQuery("select r from Roomie r where r.idPerson IN :ids", Roomie.class)
                     .setParameter("ids", ids)
+                    .getResultList();
+        } finally {
+            em.close();
+        }
+    }
+
+    // finds the accepted roomies of a roomshare (the ones can be assigned to a task)
+    public List<Roomie> findAcceptedRoomies(RoomShare roomShare){
+        EntityManager em = JpaUtil.createEntityManager();
+
+        try {
+            return em.createQuery(
+                            "select r from Roomie r " +
+                                    "where r.roomshare.id = :roomshareId and r.statusMember = :status " +
+                                    "order by r.firstName, r.lastName", Roomie.class)
+                    .setParameter("roomshareId", roomShare.getId())
+                    .setParameter("status", MembershipStatus.ACCEPTED)
                     .getResultList();
         } finally {
             em.close();

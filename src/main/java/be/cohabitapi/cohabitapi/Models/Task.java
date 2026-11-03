@@ -2,6 +2,7 @@ package be.cohabitapi.cohabitapi.Models;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.TaskDAO;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
@@ -194,6 +195,20 @@ public class Task {
         roomies.add(roomie);
     }
 
+    // GETTASKS
+
+    // All the tasks of a roomshare
+    public static List<Task> findAllForRoomie(Roomie roomie, TaskDAO taskDAO) {
+        requireAcceptedMember(roomie);
+        return taskDAO.findByRoomshare(roomie.getRoomshare());
+    }
+
+    // Find roomies with accepted status of the roomshare so the assignable ones
+    public static List<Roomie> findAssignableRoomies(Roomie roomie, PersonDAO personDAO) {
+        requireAcceptedMember(roomie);
+        return personDAO.findAcceptedRoomies(roomie.getRoomshare());
+    }
+
     // -------------Utility methods
 
     private void assignRoomies(List<Integer> roomieIds, PersonDAO personDAO) {
@@ -229,5 +244,11 @@ public class Task {
             // We turn it into an IllegalArgumentException so the API answers 400 with a clear message
             throw new IllegalArgumentException("The due date must have the format YYYY-MM-DD.");
         }
+    }
+
+    // a method to tell that only accepted member can see his tasks.
+    private static void requireAcceptedMember(Roomie roomie) {
+        if (roomie == null || !roomie.isAcceptedMemberOf(roomie.getRoomshare()))
+            throw new NotInRoomshareException();
     }
 }
