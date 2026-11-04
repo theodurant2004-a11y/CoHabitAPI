@@ -2,11 +2,11 @@ package be.cohabitapi.cohabitapi.API;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
-import be.cohabitapi.cohabitapi.DTO.CreateRoomShareRequest;
-import be.cohabitapi.cohabitapi.DTO.CreateRoomShareResponse;
+import be.cohabitapi.cohabitapi.DTO.*;
 import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Owner;
+import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.RoomShare;
 import static be.cohabitapi.cohabitapi.API.APIResponse.error;
 import static be.cohabitapi.cohabitapi.Models.RoomShare.generateInvitationKey;
@@ -17,17 +17,12 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Collections;
 
-import be.cohabitapi.cohabitapi.DTO.JoinRoomShareRequest;
-import be.cohabitapi.cohabitapi.DTO.JoinRoomShareResponse;
 import be.cohabitapi.cohabitapi.EXCEPTION.AlreadyInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidInvitationKeyException;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 import java.util.Locale;
 
-import be.cohabitapi.cohabitapi.DTO.AnswerJoinRequest;
-import be.cohabitapi.cohabitapi.DTO.AnswerJoinResponse;
-import be.cohabitapi.cohabitapi.DTO.PendingJoinResponse;
 import be.cohabitapi.cohabitapi.EXCEPTION.JoinRequestNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NoPendingRequestException;
 import java.util.ArrayList;
@@ -234,6 +229,53 @@ public class RoomShareAPI {
         } catch (NoPendingRequestException e) {
             // 409: the request was already answered
             return error(Response.Status.CONFLICT, e.getMessage());
+
+        } catch (RuntimeException e) {
+            // 500: anything unexpected but the client only gets a generic message
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
+        }
+    }
+    // MEMBERS : the owner and the accepted roomies of the roomshare (Members page)
+    // The owner AND the roomies can use it: everybody sees who lives in the roomshare
+    // The full URL is /api/roomshares/members?email=... (the class path + this path)
+    // TO DO : remove the email parameter when the session system is efficient
+    @GET
+    @Path("/members")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getMembers(@QueryParam("email") String email) {
+        // A GET has no body, so the email comes from the URL with @QueryParam
+
+        try {
+            // The model does the work (finds the user, his roomshare and the members)
+            List<Person> members = RoomShare.findMembers(email, personDAO);
+
+            // We answer with a list of small DTOs, never with the real models (they contain the password hash)
+            List<MembersResponse> resp = new ArrayList<>();
+            for (Person member : members) {
+                // The role is "owner" or "roomie", like in the login answer
+                String role = member instanceof Owner ? "owner" : "roomie";
+                resp.add(new MembersResponse(
+                        member.getIdPerson(),
+                        member.getFirstName(),
+                        member.getLastName(),
+                        member.getEmail(),
+                        role));
+            }
+
+            // 200 OK, the JSON looks like {"members": [ ... ]}, the owner is always the first one
+            return Response.ok(Collections.singletonMap("members", resp)).build();
+
+        } catch (IllegalArgumentException e) {
+            // 400: the email is missing or empty
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+
+        } catch (UserNotFoundException e) {
+            // 401: neutral message, so nobody can find out which emails have an account
+            return error(Response.Status.UNAUTHORIZED, "Authentication required.");
+
+        } catch (UnauthorizedUserException e) {
+            // 403: a roomie who is not accepted yet cannot see the members
+            return error(Response.Status.FORBIDDEN, e.getMessage());
 
         } catch (RuntimeException e) {
             // 500: anything unexpected but the client only gets a generic message

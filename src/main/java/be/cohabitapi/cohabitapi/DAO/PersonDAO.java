@@ -167,4 +167,28 @@ public class PersonDAO extends DAO<Person>{
             em.close();
         }
     }
+
+    //--------------- MEMBERS OF A ROOMSHARE -------------------
+
+    // Finds all the roomies who are real members (ACCEPTED) of the roomshare of this owner
+    // Same query as findPendingRoomiesByOwner, only the status changes
+    public List<Roomie> findAcceptedRoomiesByOwner(Integer ownerId) {
+        // One EntityManager per call
+        EntityManager em = JpaUtil.createEntityManager();
+
+        try {
+            // r.roomshare.owner.idPerson follows the links between the objects, JPA writes the SQL joins for us
+            // ORDER BY: the roomies are always shown in the same order (by first name)
+            return em.createQuery(
+                            "SELECT r FROM Roomie r WHERE r.roomshare.owner.idPerson = :ownerId AND r.statusMember = :status ORDER BY r.firstName",
+                            Roomie.class)
+                    .setParameter("ownerId", ownerId)
+                    // The converter of MembershipStatus turns ACCEPTED into 3 for the db
+                    .setParameter("status", MembershipStatus.ACCEPTED)
+                    // getResultList: an empty list if there is no roomie yet (no exception)
+                    .getResultList();
+        } finally {
+            em.close();
+        }
+    }
 }
