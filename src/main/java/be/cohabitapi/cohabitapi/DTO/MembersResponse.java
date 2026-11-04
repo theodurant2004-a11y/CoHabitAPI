@@ -18,8 +18,45 @@ public class MembersResponse {
     private String role;
 
     // Getters and setters: Jackson uses the getters to turn the object into JSON
-    // (getId/setId, getFirstName/setFirstName, getLastName/setLastName, getEmail/setEmail, getRole/setRole
-    //  écrits sur plusieurs lignes comme dans les autres DTO)
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
 
     // Used by the API to build one line of the list
     public MembersResponse(int id, String firstName, String lastName, String email, String role) {
