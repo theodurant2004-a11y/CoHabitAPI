@@ -2,11 +2,10 @@ package be.cohabitapi.cohabitapi.API;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.TaskDAO;
-import be.cohabitapi.cohabitapi.DTO.TaskCreateRequest;
-import be.cohabitapi.cohabitapi.DTO.TaskListResponse;
-import be.cohabitapi.cohabitapi.DTO.TaskResponse;
+import be.cohabitapi.cohabitapi.DTO.*;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
+import be.cohabitapi.cohabitapi.EXCEPTION.TaskNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 import be.cohabitapi.cohabitapi.Models.Task;
@@ -121,4 +120,105 @@ public class TaskAPI {
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
         }
     }
+
+
+    @PUT
+    @Path("/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response updateTask(@PathParam("id") Integer id, TaskUpdateRequest req){
+        if(req == null){
+            return error(Response.Status.BAD_REQUEST, "JSON invalid.");
+        }
+
+        try {
+            Task task = Task.update(
+                    req.getRoomieEmail(),
+                    id,
+                    req.getName(),
+                    req.getDescription(),
+                    req.getDueDate(),
+                    req.getStatus(),
+                    req.getRoomieIds(),
+                    personDAO,
+                    taskDAO);
+
+            TaskResponse resp = new TaskResponse(task);
+
+            return Response.status(Response.Status.OK)
+                    .entity(Collections.singletonMap("task", resp))
+                    .build();
+        } catch (UserNotFoundException e) {
+            // 401: neutral message, so nobody can find out which emails have an account
+            return error(Response.Status.UNAUTHORIZED, "Authentication required.");
+
+        } catch (ForbiddenRoleException e) {
+            // 403: an owner cannot update a task
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+
+        } catch (NotInRoomshareException e) {
+            // 403: the roomie has no roomshare or his request is still pending
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+
+        } catch (TaskNotFoundException e) {
+            // 404: the task does not exist or is not in his roomshare
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+
+        } catch (IllegalArgumentException e) {
+            // 400: a business rule is broken in the model (name, date, status, roomies...)
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+
+        } catch (RuntimeException e) {
+            // 500: anything unexpected, the client only gets a generic message
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
+        }
+    }
+
+    @PUT
+    @Path("/{id}/status")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response changeStatus(@PathParam("id") Integer id, TaskStatusRequest req){
+        if(req == null){
+            return error(Response.Status.BAD_REQUEST, "JSON invalid.");
+        }
+
+        try {
+            // The model checks the roomie, the task and the status, then saves
+            Task task = Task.changeStatus(
+                    req.getRoomieEmail(),
+                    id,
+                    req.getStatus(),
+                    personDAO,
+                    taskDAO);
+
+            // 200 OK with the updated task
+            return Response.ok(Collections.singletonMap("task", new TaskResponse(task))).build();
+
+        } catch (UserNotFoundException e) {
+            // 401: neutral message
+            return error(Response.Status.UNAUTHORIZED, "Authentication required.");
+
+        } catch (ForbiddenRoleException e) {
+            // 403: an owner cannot check a task
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+
+        } catch (NotInRoomshareException e) {
+            // 403: the roomie has no roomshare or his request is still pending
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+
+        } catch (TaskNotFoundException e) {
+            // 404: the task does not exist or is not in his roomshare
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+
+        } catch (IllegalArgumentException e) {
+            // 400: the status is missing or unknown, or the email is empty
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+
+        } catch (RuntimeException e) {
+            // 500: anything unexpected
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
+        }
+    }
+
 }

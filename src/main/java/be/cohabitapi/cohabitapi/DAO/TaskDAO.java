@@ -55,4 +55,47 @@ public class TaskDAO extends DAO<Task> {
             em.close();
         }
     }
+
+    public Task findById(Integer id){
+        if(id == null){
+            return null;
+        }
+
+        EntityManager em = JpaUtil.createEntityManager();
+
+        try {
+            List<Task> results = em.createQuery(
+                    "select t from Task t " +
+                            "left join fetch t.roomies " +
+                            "where t.id = :id", Task.class)
+                    .setParameter("id", id)
+                    .getResultList();
+            return results.isEmpty() ? null : results.get(0);
+        } finally {
+            em.close();
+        }
+    }
+
+    // Update the task
+    public void update(Task task){
+        EntityManager em = JpaUtil.createEntityManager();
+
+        try {
+            EntityTransaction transaction = em.getTransaction();
+            try {
+                transaction.begin();
+
+                em.merge(task);
+
+                transaction.commit();
+            } catch (RuntimeException e){
+                if(transaction.isActive()){
+                    transaction.rollback();
+                }
+                throw e;
+            }
+        } finally {
+            em.close();
+        }
+    }
 }

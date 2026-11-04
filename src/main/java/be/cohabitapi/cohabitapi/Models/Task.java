@@ -3,6 +3,7 @@ package be.cohabitapi.cohabitapi.Models;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.TaskDAO;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
+import be.cohabitapi.cohabitapi.EXCEPTION.TaskNotFoundException;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
@@ -209,6 +210,51 @@ public class Task {
         return personDAO.findAcceptedRoomies(roomie.getRoomshare());
     }
 
+    public static Task update(String roomieEmail, Integer taskId,String name, String description,
+                              String dueDate, String status, List<Integer> roomieIds,
+                              PersonDAO personDAO, TaskDAO taskDAO){
+        Roomie roomie = Roomie.checkAcceptedRoomie(roomieEmail, personDAO);
+
+        Task task = findTaskOfRoomie(taskId, roomie, taskDAO);
+
+        LocalDate cleanDueDate = parseDueDate(dueDate);
+
+        boolean dateChanged = cleanDueDate != null && !cleanDueDate.equals(task.getDueDate());
+        if(dateChanged && cleanDueDate.isBefore(LocalDate.now())){
+            throw new IllegalArgumentException("The due date cannot be in the past.");
+        }
+
+        TaskStatus cleanStatus = TaskStatus.fromLabel(status);
+
+        task.setName(name);
+        task.setDescription(description);
+        task.setDueDate(cleanDueDate);
+        task.setStatus(cleanStatus);
+        task.replaceRoomies(roomieIds, personDAO);
+
+        taskDAO.update(task);
+
+        return task;
+    }
+
+    public static Task changeStatus(String roomieEmail, Integer taskId, String status,
+                                    PersonDAO personDAO, TaskDAO taskDAO) {
+
+        // 1. Who is calling? He must be an accepted roomie
+        Roomie roomie = Roomie.checkAcceptedRoomie(roomieEmail, personDAO);
+
+        // 2. The task must exist and be in his roomshare (404 otherwise)
+        Task task = findTaskOfRoomie(taskId, roomie, taskDAO);
+
+        // 3. Only the status changes (400 if missing or unknown)
+        task.setStatus(TaskStatus.fromLabel(status));
+
+        // 4. Save it
+        taskDAO.update(task);
+
+        return task;
+    }
+
     // -------------Utility methods
 
     private void assignRoomies(List<Integer> roomieIds, PersonDAO personDAO) {
@@ -250,5 +296,20 @@ public class Task {
     private static void requireAcceptedMember(Roomie roomie) {
         if (roomie == null || !roomie.isAcceptedMemberOf(roomie.getRoomshare()))
             throw new NotInRoomshareException();
+    }
+
+    private static Task findTaskOfRoomie(Integer taskId, Roomie roomie, TaskDAO taskDAO){
+        Task task = taskDAO.findById(taskId);
+
+        if(task == null || !roomie.isAcceptedMemberOf(task.getRoomshare())){
+            throw new TaskNotFoundException();
+        }
+
+        return task;
+    }
+
+    private void replaceRoomies(List<Integer> roomieIds, PersonDAO personDAO){
+        roomies.clear();
+        assignRoomies(roomieIds, personDAO);
     }
 }
