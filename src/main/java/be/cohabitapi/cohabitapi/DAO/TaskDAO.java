@@ -12,7 +12,7 @@ import java.util.List;
 @ApplicationScoped
 public class TaskDAO extends DAO<Task> {
 
-    // saves the task and the roomies assigned to it to add a task
+    // ADD A TASK : saves the task and the roomies assigned to it (Task + Task_Roomie)
     @Override
     public void create(Task task) {
         EntityManager em = JpaUtil.createEntityManager();
@@ -39,7 +39,7 @@ public class TaskDAO extends DAO<Task> {
         }
     }
 
-    // Find all the tasks of a roomshare
+    // TASKS LIST : finds all the tasks of a roomshare, with their roomies
     public List<Task> findByRoomshare(RoomShare roomShare){
         EntityManager em = JpaUtil.createEntityManager();
 
@@ -56,6 +56,7 @@ public class TaskDAO extends DAO<Task> {
         }
     }
 
+    // UPDATE / DELETE : finds one task with its roomies (null if it does not exist)
     public Task findById(Integer id){
         if(id == null){
             return null;
@@ -76,7 +77,7 @@ public class TaskDAO extends DAO<Task> {
         }
     }
 
-    // Update the task
+    // UPDATE A TASK : saves the changes made on an existing task (and its roomies)
     public void update(Task task){
         EntityManager em = JpaUtil.createEntityManager();
 
@@ -87,6 +88,37 @@ public class TaskDAO extends DAO<Task> {
 
                 em.merge(task);
 
+                transaction.commit();
+            } catch (RuntimeException e){
+                if(transaction.isActive()){
+                    transaction.rollback();
+                }
+                throw e;
+            }
+        } finally {
+            em.close();
+        }
+    }
+
+    // DELETE A TASK : deletes a task (and its lines in Task_Roomie)
+    public void delete(Task task){
+        EntityManager em = JpaUtil.createEntityManager();
+        try {
+            EntityTransaction transaction = em.getTransaction();
+            try {
+                transaction.begin();
+
+                // The same task, but managed by this EntityManager
+                Task managed = em.find(Task.class, task.getId());
+
+                // null: already deleted meanwhile (by another roomie), nothing left to do
+                if (managed != null) {
+                    // Hibernate first deletes the lines of Task_Roomie, then the task
+                    // The roomies themselves are never deleted (no cascade to them)
+                    em.remove(managed);
+                }
+
+                // The real DELETEs are sent here
                 transaction.commit();
             } catch (RuntimeException e){
                 if(transaction.isActive()){

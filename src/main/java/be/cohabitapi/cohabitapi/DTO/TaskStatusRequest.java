@@ -2,9 +2,12 @@ package be.cohabitapi.cohabitapi.DTO;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+// The shape of the JSON sent by the front to check or uncheck a task (PUT /api/tasks/{id}/status)
+// Only the status changes, so only the status is sent. The id is in the URL
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TaskStatusRequest {
 
+    // "completed" to check the task, "pending" to uncheck it
     private String status;
     private String roomieEmail;
 

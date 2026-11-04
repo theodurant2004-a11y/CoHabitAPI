@@ -102,8 +102,10 @@ public class PersonDAO extends DAO<Person>{
         }
     }
 
-    // TASK
+    // TASKS
 
+    // ADD / UPDATE A TASK : finds the roomies whose id is in the collection (one query for all of them)
+    // "Roomie" is the class: an owner id is never returned
     public List<Roomie> findRoomiesByIds(Collection<Integer> ids){
         //Oracle refuses a IN() with a empty list
         if(ids == null || ids.isEmpty()){
@@ -121,7 +123,9 @@ public class PersonDAO extends DAO<Person>{
         }
     }
 
-    // finds the accepted roomies of a roomshare (the ones can be assigned to a task)
+    // TASKS LIST : finds the accepted roomies of a roomshare (the ones a task can be assigned to)
+    // We pass the enum value: Hibernate uses the DbConverter to turn ACCEPTED into 3
+    // Sorted by name so the front can display them directly
     public List<Roomie> findAcceptedRoomies(RoomShare roomShare){
         EntityManager em = JpaUtil.createEntityManager();
 

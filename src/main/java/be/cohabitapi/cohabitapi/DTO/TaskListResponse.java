@@ -6,6 +6,8 @@ import be.cohabitapi.cohabitapi.Models.Task;
 import java.util.ArrayList;
 import java.util.List;
 
+// The answer of the tasks list: the tasks of the roomshare + the roomies a task can be assigned to
+// Both lists are needed by the tasks page (the list to display, and the checkboxes of the form)
 public class TaskListResponse {
     // Empty by default: the front gets [] and never null
     private List<TaskResponse> tasks = new ArrayList<>();

@@ -4,6 +4,10 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.List;
 
+// The shape of the JSON sent by the front to update a task (PUT /api/tasks/{id})
+// PUT = everything is replaced, so the front sends the whole task
+// The id is not here: it is in the URL
+// ignoreUnknown = true: if the front sends an extra field it is ignored instead of causing an error
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TaskUpdateRequest {
     private String name;

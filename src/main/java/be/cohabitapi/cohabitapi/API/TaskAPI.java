@@ -122,6 +122,9 @@ public class TaskAPI {
     }
 
 
+    // UPDATE A TASK : PUT /api/tasks/{id}
+    // PUT = everything is replaced, the front sends the whole task
+    // {id} is read from the URL by @PathParam (/api/tasks/abc gives a 404 automatically)
     @PUT
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -174,6 +177,9 @@ public class TaskAPI {
         }
     }
 
+    // UPDATE A TASK : PUT /api/tasks/{id}
+    // PUT = everything is replaced, the front sends the whole task
+    // {id} is read from the URL by @PathParam (/api/tasks/abc gives a 404 automatically)
     @PUT
     @Path("/{id}/status")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -221,4 +227,42 @@ public class TaskAPI {
         }
     }
 
+
+    // DELETE A TASK : DELETE /api/tasks/{id}?roomieEmail=...
+    // No body (a DELETE with a body is badly supported), so the email comes in the URL like for the GET
+    // Every accepted roomie of the roomshare can delete a task of his roomshare
+    // TO DO : remove roomieEmail when the session system is efficient
+    @DELETE
+    @Path("/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response deleteTask(@PathParam("id") Integer id, @QueryParam("roomieEmail") String roomieEmail){
+        try {
+            Task.delete(roomieEmail, id, personDAO, taskDAO);
+
+            return Response.noContent().build();
+        } catch (UserNotFoundException e) {
+            // 401: neutral message, so nobody can find out which emails have an account
+            return error(Response.Status.UNAUTHORIZED, "Authentication required.");
+
+        } catch (ForbiddenRoleException e) {
+            // 403: an owner cannot delete a task
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+
+        } catch (NotInRoomshareException e) {
+            // 403: the roomie has no roomshare or his request is still pending
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+
+        } catch (TaskNotFoundException e) {
+            // 404: the task does not exist or is not in his roomshare
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+
+        } catch (IllegalArgumentException e) {
+            // 400: the email is missing or empty
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+
+        } catch (RuntimeException e) {
+            // 500: anything unexpected, the client only gets a generic message
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
+        }
+    }
 }

@@ -196,7 +196,7 @@ public class Task {
         roomies.add(roomie);
     }
 
-    // GETTASKS
+    // TASKS LIST
 
     // All the tasks of a roomshare
     public static List<Task> findAllForRoomie(Roomie roomie, TaskDAO taskDAO) {
@@ -210,15 +210,22 @@ public class Task {
         return personDAO.findAcceptedRoomies(roomie.getRoomshare());
     }
 
+    // UPDATE A TASK : the whole use case (PUT = everything is replaced)
+    // Same checks as create: the setters check every value, assignRoomie checks every roomie
     public static Task update(String roomieEmail, Integer taskId,String name, String description,
                               String dueDate, String status, List<Integer> roomieIds,
                               PersonDAO personDAO, TaskDAO taskDAO){
+        // 1. we search for the Roomie who wants to change the task
         Roomie roomie = Roomie.checkAcceptedRoomie(roomieEmail, personDAO);
 
+        // 2. we search the task
         Task task = findTaskOfRoomie(taskId, roomie, taskDAO);
 
+        // 3. we clean the datas
         LocalDate cleanDueDate = parseDueDate(dueDate);
 
+        // 4. A NEW due date cannot be in the past, but keeping the same one is allowed (even if it is late)
+        // We compare before setDueDate, while we still know the old date
         boolean dateChanged = cleanDueDate != null && !cleanDueDate.equals(task.getDueDate());
         if(dateChanged && cleanDueDate.isBefore(LocalDate.now())){
             throw new IllegalArgumentException("The due date cannot be in the past.");
@@ -226,17 +233,21 @@ public class Task {
 
         TaskStatus cleanStatus = TaskStatus.fromLabel(status);
 
+        // 5. we use the setters to update the object
         task.setName(name);
         task.setDescription(description);
         task.setDueDate(cleanDueDate);
         task.setStatus(cleanStatus);
         task.replaceRoomies(roomieIds, personDAO);
 
+        // 6. we send the object to the dao to update it the database
         taskDAO.update(task);
 
         return task;
     }
 
+    // CHECK / UNCHECK A TASK : only the status changes ("completed" or "pending")
+    // Every accepted roomie of the roomshare can check or uncheck a task of his roomshare
     public static Task changeStatus(String roomieEmail, Integer taskId, String status,
                                     PersonDAO personDAO, TaskDAO taskDAO) {
 
@@ -255,8 +266,25 @@ public class Task {
         return task;
     }
 
+    // DELETE A TASK : the whole use case
+    // Every accepted roomie of the roomshare can delete a task of his roomshare
+    public static void delete(String roomieEmail, Integer taskId, PersonDAO personDAO, TaskDAO taskDAO){
+
+        // 1. Who is calling? He must be an accepted roomie (401 / 403)
+        Roomie roomie = Roomie.checkAcceptedRoomie(roomieEmail, personDAO);
+
+        // 2. The task must exist and be in his roomshare (404 otherwise)
+        Task task = findTaskOfRoomie(taskId, roomie, taskDAO);
+
+        // 3. Delete it (its lines in Task_Roomie are deleted too, the roomies are not touched)
+        taskDAO.delete(task);
+        taskDAO.delete(task);
+    }
+
     // -------------Utility methods
 
+    // Loads the roomies from their ids and assigns them one by one
+    // Private: only create and update use it
     private void assignRoomies(List<Integer> roomieIds, PersonDAO personDAO) {
         // 0..* in the class diagram: a task without roomie is allowed
         if (roomieIds == null || roomieIds.isEmpty())
@@ -292,12 +320,16 @@ public class Task {
         }
     }
 
-    // a method to tell that only accepted member can see his tasks.
+    // Only an accepted member of a roomshare can see its tasks (403 otherwise)
+    // We reuse isAcceptedMemberOf so the rule stays written only once, in Roomie
     private static void requireAcceptedMember(Roomie roomie) {
         if (roomie == null || !roomie.isAcceptedMemberOf(roomie.getRoomshare()))
             throw new NotInRoomshareException();
     }
 
+    // Finds a task of the roomshare of this roomie
+    // Does not exist, or is in another roomshare: same exception (404), so nobody learns that it exists elsewhere
+    // Used by update, changeStatus and delete
     private static Task findTaskOfRoomie(Integer taskId, Roomie roomie, TaskDAO taskDAO){
         Task task = taskDAO.findById(taskId);
 
@@ -308,6 +340,10 @@ public class Task {
         return task;
     }
 
+
+    // PUT replaces everything: we empty the roomies, then assign the new ones
+    // assignRoomies checks each one again (accepted, same roomshare)
+    // Hibernate will only delete / insert the lines of Task_Roomie that really changed
     private void replaceRoomies(List<Integer> roomieIds, PersonDAO personDAO){
         roomies.clear();
         assignRoomies(roomieIds, personDAO);
