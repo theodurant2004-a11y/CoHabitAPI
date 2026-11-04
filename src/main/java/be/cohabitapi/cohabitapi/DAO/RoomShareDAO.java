@@ -1,6 +1,7 @@
 package be.cohabitapi.cohabitapi.DAO;
 
 import be.cohabitapi.cohabitapi.Models.RoomShare;
+import be.cohabitapi.cohabitapi.Models.Roomie;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
@@ -68,6 +69,42 @@ public class RoomShareDAO extends DAO<RoomShare> {
             return results.isEmpty() ? null : results.get(0);
         } finally {
             // We always need to close the EntityManager, even if there is an error
+            em.close();
+        }
+    }
+
+    // Loads a roomshare with its roomies and all their expenses
+    // 3 queries with the same em because Hibernate can't fetch two lists in one query
+    public RoomShare findWithRoomies(Integer id) {
+        EntityManager em = JpaUtil.createEntityManager();
+
+        try {
+            // The roomshare and its roomies
+            List<RoomShare> found = em.createQuery(
+                            "SELECT DISTINCT rs FROM RoomShare rs LEFT JOIN FETCH rs.roomies WHERE rs.id = :id",
+                            RoomShare.class)
+                    .setParameter("id", id)
+                    .getResultList();
+
+            if (found.isEmpty())
+                return null;
+
+            // The expenses the roomies have to pay (they fill the lists of the roomies loaded above)
+            em.createQuery(
+                            "SELECT DISTINCT r FROM Roomie r LEFT JOIN FETCH r.expensesToPay WHERE r.roomshare.id = :id",
+                            Roomie.class)
+                    .setParameter("id", id)
+                    .getResultList();
+
+            // 3. The expenses the roomies have to receive
+            em.createQuery(
+                            "SELECT DISTINCT r FROM Roomie r LEFT JOIN FETCH r.expensesToReceive WHERE r.roomshare.id = :id",
+                            Roomie.class)
+                    .setParameter("id", id)
+                    .getResultList();
+
+            return found.get(0);
+        } finally {
             em.close();
         }
     }

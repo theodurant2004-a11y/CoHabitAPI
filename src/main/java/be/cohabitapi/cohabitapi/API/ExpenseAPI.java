@@ -2,6 +2,7 @@ package be.cohabitapi.cohabitapi.API;
 
 import be.cohabitapi.cohabitapi.DAO.ExpenseDAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
+import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.DTO.CreateExpenseRequest;
 import be.cohabitapi.cohabitapi.DTO.ExpensesResponse;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
@@ -10,6 +11,7 @@ import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Expense;
 import be.cohabitapi.cohabitapi.Models.ExpenseCategory;
 import be.cohabitapi.cohabitapi.Models.Person;
+import be.cohabitapi.cohabitapi.Models.RoomShare;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 import static be.cohabitapi.cohabitapi.API.APIResponse.error;
 
@@ -19,7 +21,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 // The url is /api/expenses
 @Path("/expenses")
@@ -29,80 +30,84 @@ public class ExpenseAPI {
     private PersonDAO personDAO;
     @Inject
     private ExpenseDAO expenseDAO;
+    @Inject
+    private RoomShareDAO roomShareDAO;
 
 
-    // to see my expenses, gives everything the page "Expenses" of a roomie needs
+    // To see my expenses
     // TODO : remove the email when the session system is efficient (the API will know who is calling)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Response getExpenses(@QueryParam("email") String email) {
         try {
-            // the model does all the work, it checks, search and calculations
-            Roomie me = Roomie.findAcceptedMember(email, personDAO);
-            List<Roomie> roomies = me.findRoomies(personDAO);
-            List<Expense> all = Expense.findAllOfRoomshare(me, expenseDAO);
+            Roomie me = findMember(email);
 
-            List<Expense> mine = Expense.keepMine(me, all);
-            double toPay = Expense.calculateToPay(me, all);
-            double toReceive = Expense.calculateToReceive(me, all);
-            Map<Integer, Long> balances = Expense.calculateBalances(roomies, all);
-            List<Expense> refunds = Expense.suggestRefunds(roomies, balances);
-
-            // we answer with DTOs and not the model because of the passworldhash
-            return Response.ok(toResponse(me, roomies, mine, toPay, toReceive, balances, refunds)).build();
+            // We answer with dto and not the model because of the password hash
+            return Response.ok(toResponse(me, me.findMyExpenses(), me.suggestRefunds())).build();
 
         } catch (IllegalArgumentException e) {
-            // error 400 : for ex the email is empty
+            // error 400
             return error(Response.Status.BAD_REQUEST, e.getMessage());
 
         } catch (UserNotFoundException e) {
-            // error 401: neutral message so nobody can find out which emails have an account
+            // error 401
             return error(Response.Status.UNAUTHORIZED, "Authentication required.");
 
         } catch (ForbiddenRoleException e) {
-            // error 403: an owner has no expenses
+            // error 403
             return error(Response.Status.FORBIDDEN, "Only a roomie can use the expenses.");
 
         } catch (NotInRoomshareException e) {
-            // error 403: no roomshare yet or the request is still pending
+            // error 403
             return error(Response.Status.FORBIDDEN, e.getMessage());
 
         } catch (RuntimeException e) {
-            // error 500: anything unexpected, with a generic message
+            // error 500
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
         }
     }
 
-    //to add an expence; one debt is created for each roomie of the split
+    // To add an expense one debt is created for each roomie
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response createExpense(CreateExpenseRequest req) {
 
-        // if no body at all ; 400 error
+        // if no body at all 400 error
         if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
 
         try {
-            Expense.addExpense(
-                    req.getRoomieEmail(),
+            Roomie me = findMember(req.getRoomieEmail());
+            RoomShare roomshare = me.getRoomshare();
+
+            // The JSON only has ids: we turn them into roomies of the roomshare
+            Roomie payer = roomshare.findRoomie(req.getPaidById());
+
+            List<Roomie> sharers = new ArrayList<>();
+            if (req.getSharedWithIds() != null) {
+                for (Integer id : req.getSharedWithIds()) {
+                    sharers.add(roomshare.findRoomie(id));
+                }
+            }
+
+            // The roomie who paid adds the expense
+            payer.addExpense(
                     req.getDescription(),
                     req.getAmount(),
                     req.getDate(),
-                    req.getPaidById(),
                     req.getCategory(),
-                    req.getSharedWithIds(),
-                    personDAO,
+                    sharers,
                     expenseDAO);
 
-            // 201 Created: new rows exist now. The front asks the list again, so there is no body
+            // 201 Created: new rows exist now. The front asks the list again
             return Response.status(Response.Status.CREATED).build();
 
         } catch (IllegalArgumentException e) {
-            // eror 400 : something sent by the user is not valid
+            // error 400
             return error(Response.Status.BAD_REQUEST, e.getMessage());
 
         } catch (UserNotFoundException e) {
-            // error 401: neutral message so nobody can find out which emails have an account
+            // error 401
             return error(Response.Status.UNAUTHORIZED, "Authentication required.");
 
         } catch (ForbiddenRoleException e) {
@@ -110,36 +115,43 @@ public class ExpenseAPI {
             return error(Response.Status.FORBIDDEN, "Only a roomie can use the expenses.");
 
         } catch (NotInRoomshareException e) {
-            // error 403: no roomshare yet, or the request is still pending
+            // error 403: no roomshare yet or request  pending
             return error(Response.Status.FORBIDDEN, e.getMessage());
 
         } catch (RuntimeException e) {
-            // error 500: anything unexpected, but the client only gets a generic message
+            // error 500
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
         }
     }
 
 
-    //Model => DTO
+    // Finds the roomie who is signed in, checks that if he is accepted, and loads his roomshare
+    private Roomie findMember(String email) {
+        Person person = personDAO.findByEmail(email);
 
-    // this method only copies what the model calculated into the DTOs
-    // the color and the width of the bar are only for the display, so we choose  here
-    private static ExpensesResponse toResponse(Roomie me, List<Roomie> roomies, List<Expense> mine,
-                                               double toPay, double toReceive,
-                                               Map<Integer, Long> balances, List<Expense> refunds) {
+        if (person == null)
+            throw new UserNotFoundException();
+
+        // An owner throws a exception here
+        Roomie roomie = person.toRoomie();
+        roomie.checkIsAccepted();
+
+        return roomie.loadRoomshare(roomShareDAO);
+    }
+
+    // Model => DTO
+    // This method only copies what the model calculated into the DTOs
+    private ExpensesResponse toResponse(Roomie me, List<Expense> mine, List<Expense> refunds) {
         List<ExpensesResponse.MemberResponse> members = new ArrayList<>();
         List<ExpensesResponse.BalanceResponse> balanceList = new ArrayList<>();
 
-        for (int i = 0; i < roomies.size(); i++) {
-            Roomie roomie = roomies.get(i);
-            String color = Expense.colorOf(i);
-            long cents = balances.get(roomie.getIdPerson());
-            int percent = Expense.calculatePercent(cents, balances);
-            String sign = Expense.signOf(cents);
+        for (Roomie roomie : me.getRoomshare().getAcceptedRoomies()) {
+            String color = roomie.chooseColor();
 
             members.add(new ExpensesResponse.MemberResponse(roomie.getIdPerson(), fullName(roomie), color));
             balanceList.add(new ExpensesResponse.BalanceResponse(
-                    fullName(roomie), color, Expense.centsToEuros(cents), percent, sign));
+                    fullName(roomie), color, roomie.calculateBalance(),
+                    roomie.calculatePercent(), roomie.getBalanceSign()));
         }
 
         List<ExpensesResponse.CategoryResponse> categories = new ArrayList<>();
@@ -167,15 +179,17 @@ public class ExpenseAPI {
                     fullName(refund.getDebtor()), fullName(refund.getCreditor()), refund.getSum()));
         }
 
-        return new ExpensesResponse(me.getIdPerson(), members, categories,
-                new ExpensesResponse.SummaryResponse(toPay, toReceive,
-                        Expense.hasAmount(toPay), Expense.hasAmount(toReceive),
-                        Expense.calculateMyBalance(me, balances), Expense.describeBalance(me, balances)),
+        ExpensesResponse.SummaryResponse summary = new ExpensesResponse.SummaryResponse(
+                me.calculateToPay(), me.calculateToReceive(),
+                me.hasToPay(), me.hasToReceive(),
+                me.calculateBalance(), me.getBalanceStatus());
+
+        return new ExpensesResponse(me.getIdPerson(), members, categories, summary,
                 expenses, balanceList, refundList);
     }
 
-    // first name + last name of a person
-    private static String fullName(Person person) {
+    // First name  last name of a person
+    private String fullName(Person person) {
         return person.getFirstName() + " " + person.getLastName();
     }
 }

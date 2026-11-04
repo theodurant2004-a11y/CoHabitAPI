@@ -60,12 +60,19 @@ public class PersonDAO extends DAO<Person>{
 
     //LOGIN: Find existing email and take information
     public Person findByEmail(String email){
+        // An email that is null can't be in the db
+        if (email == null)
+            return null;
+
+        // The emails are saved in lower case
+        String cleanEmail = email.trim().toLowerCase(Locale.ROOT);
+
         EntityManager em = JpaUtil.createEntityManager();
 
         try {
             List<Person> results = em.createQuery(
                             "SELECT p FROM Person p WHERE p.email = :email", Person.class)
-                    .setParameter("email", email)
+                    .setParameter("email", cleanEmail)
                     // i use getResultList beceause it's  easier if a mistake is made
                     .getResultList();
 
@@ -100,25 +107,6 @@ public class PersonDAO extends DAO<Person>{
 
                 throw e;
             }
-        } finally {
-            em.close();
-        }
-    }
-
-
-    // This method is used to get the roomies that are in a roomshare
-    // They are always in the same order (by id), so the colors of the roomies never change
-    // We use a query (and not roomshare.getRoomies()) because that list is lazy so it cannot be read here
-    public List<Roomie> findAcceptedRoomies(RoomShare roomshare) {
-        EntityManager em = JpaUtil.createEntityManager();
-
-        try {
-            return em.createQuery(
-                            "SELECT r FROM Roomie r WHERE r.roomshare.id = :id AND r.statusMember = :status "
-                                    + "ORDER BY r.idPerson", Roomie.class)
-                    .setParameter("id", roomshare.getId())
-                    .setParameter("status", MembershipStatus.ACCEPTED)
-                    .getResultList();
         } finally {
             em.close();
         }

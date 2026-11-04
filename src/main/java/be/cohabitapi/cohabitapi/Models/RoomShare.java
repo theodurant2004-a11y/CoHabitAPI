@@ -155,6 +155,31 @@ public class RoomShare {
         roomie.setRoomshare(this);
     }
 
+    // The roomies accepted by the owner in the rs
+    // The pending roomies are in the list too, so we keep only the accepted ones
+    public List<Roomie> getAcceptedRoomies() {
+        List<Roomie> accepted = new ArrayList<>();
+
+        for (Roomie roomie : roomies) {
+            if (roomie.getStatusMember() == MembershipStatus.ACCEPTED)
+                accepted.add(roomie);
+        }
+
+        return accepted;
+    }
+
+    // Looks for an accepted roomie of this roomshare with his id
+    public Roomie findRoomie(Integer id) {
+        if (id == null)
+            throw new IllegalArgumentException("A roomie is required.");
+
+        for (Roomie roomie : getAcceptedRoomies()) {
+            if (id.equals(roomie.getIdPerson()))
+                return roomie;
+        }
+        throw new IllegalArgumentException("A roomie of the list does not belong to your roomshare.");
+    }
+
 
     // ------------------------- DAO methods --------------------------------------------------
 

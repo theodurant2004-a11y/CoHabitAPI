@@ -45,20 +45,4 @@ public class ExpenseDAO extends DAO<Expense> {
             em.close();
         }
     }
-
-    // This method gets all the debts of the roomies of a roomshare, the newest first
-    // A debt belongs to a roomshare through its debtor (debtor.roomshare)
-    public List<Expense> findByRoomshare(Integer roomshareId) {
-        EntityManager em = JpaUtil.createEntityManager();
-
-        try {
-            return em.createQuery(
-                            "SELECT x FROM Expense x WHERE x.debtor.roomshare.id = :id "
-                                    + "ORDER BY x.creationDate DESC, x.id DESC", Expense.class)
-                    .setParameter("id", roomshareId)
-                    .getResultList();
-        } finally {
-            em.close();
-        }
-    }
 }

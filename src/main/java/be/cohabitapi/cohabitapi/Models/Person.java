@@ -6,6 +6,8 @@ import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import jakarta.persistence.*;
 import org.mindrot.jbcrypt.BCrypt;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
 
 import java.nio.charset.StandardCharsets;
 
@@ -32,6 +34,11 @@ public abstract class Person {
 
     @Column(name = "user_password_hash", nullable = false, length = 255)
     private String passwordHash;
+
+    // the expenses he has to receive
+    // mappedBy: the link is already in the Expense class by attribute "creditor"
+    @OneToMany(mappedBy = "creditor")
+    private List<Expense> expensesToReceive = new ArrayList<>();
 
 
     //==============================GETTER/SETTER==============================
@@ -80,6 +87,12 @@ public abstract class Person {
         return passwordHash;
     }
 
+    public List<Expense> getExpensesToReceive() {
+        return expensesToReceive;
+    }
+
+
+
     public void setPassword(String plainPassword) {
         plainPassword = normalizePassword(plainPassword);
         if (plainPassword.length() < 8
@@ -118,6 +131,37 @@ public abstract class Person {
     //==============================METHODS==============================
     public void create(PersonDAO dao){
         dao.create(this);
+    }
+
+    // What the others have to give me
+    public double calculateToReceive() {
+        return sumInCents(expensesToReceive) / 100.0;
+    }
+
+    // Abstract bcz a roomie and an owner don't calculate their balance the same way
+    public abstract double calculateBalance();
+
+    // Each child says if it can act as a roomie or as an owner
+    public abstract Roomie toRoomie();
+
+    public abstract Owner toOwner();
+
+    // Used when a new expense is created
+    public void addExpenseToReceive(Expense expense) {
+        if (expense == null)
+            throw new IllegalArgumentException("The expense cannot be null");
+        expensesToReceive.add(expense);
+    }
+
+    // Add the sums of the debts that are not settled in cents (no rounding problem)
+    protected long sumInCents(List<Expense> expenses) {
+        long cents = 0;
+
+        for (Expense expense : expenses) {
+            if (!expense.isSettled())
+                cents += expense.getSumInCents();
+        }
+        return cents;
     }
 
     public static String hashpassword(String password){
