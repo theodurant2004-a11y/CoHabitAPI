@@ -48,7 +48,7 @@ public class TaskDAO extends DAO<Task> {
                     "select distinct t from Task t " +
                             "left join fetch t.roomies " +
                             "where t.roomshare.id = :roomshareId " +
-                            "order by t.dueDate asc nulls last, t.idTask asc", Task.class)
+                            "order by t.dueDate asc nulls last, t.id asc", Task.class)
                     .setParameter("roomshareId", roomShare.getId())
                     .getResultList();
         } finally {
@@ -68,7 +68,7 @@ public class TaskDAO extends DAO<Task> {
             List<Task> results = em.createQuery(
                     "select t from Task t " +
                             "left join fetch t.roomies " +
-                            "where t.idTask = :id", Task.class)
+                            "where t.id = :id", Task.class)
                     .setParameter("id", id)
                     .getResultList();
             return results.isEmpty() ? null : results.get(0);
@@ -109,7 +109,7 @@ public class TaskDAO extends DAO<Task> {
                 transaction.begin();
 
                 // The same task, but managed by this EntityManager
-                Task managed = em.find(Task.class, task.getIdTask());
+                Task managed = em.find(Task.class, task.getId());
 
                 // null: already deleted meanwhile (by another roomie), nothing left to do
                 if (managed != null) {
