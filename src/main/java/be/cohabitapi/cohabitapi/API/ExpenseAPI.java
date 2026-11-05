@@ -136,9 +136,9 @@ public class ExpenseAPI {
         for (Roomie roomie : me.getRoomshare().getAcceptedRoomies()) {
             String color = roomie.chooseColor();
 
-            members.add(new MemberResponse(roomie.getIdPerson(), fullName(roomie), color));
+            members.add(new MemberResponse(roomie.getIdPerson(), roomie.getFullName(), color));
             balanceList.add(new BalanceResponse(
-                    fullName(roomie), color, roomie.calculateBalance(), roomie.calculatePercent()));
+                    roomie.getFullName(), color, roomie.calculateBalance(), roomie.calculatePercent()));
         }
 
         List<ExpenseLineResponse> expenses = new ArrayList<>();
@@ -151,9 +151,9 @@ public class ExpenseAPI {
                     expense.getSum(),
                     expense.getCreationDate().toString(),
                     expense.getDebtor().getIdPerson(),
-                    fullName(expense.getDebtor()),
+                    expense.getDebtor().getFullName(),
                     creditor == null ? null : creditor.getIdPerson(),
-                    creditor == null ? "" : fullName(creditor),
+                    creditor == null ? "" : creditor.getFullName(),
                     expense.getCategory().getIcon(),
                     expense.isSettled()));
         }
@@ -161,17 +161,12 @@ public class ExpenseAPI {
         List<RefundResponse> refundList = new ArrayList<>();
         for (Refund refund : refunds) {
             refundList.add(new RefundResponse(
-                    fullName(refund.getFrom()), fullName(refund.getTo()), refund.getAmount()));
+                    refund.getFrom().getFullName(), refund.getTo().getFullName(), refund.getAmount()));
         }
 
         SummaryResponse summary = new SummaryResponse(
                 me.calculateToPay(), me.calculateToReceive(), me.calculateBalance());
 
         return new ExpensesResponse(me.getIdPerson(), members, summary, expenses, balanceList, refundList);
-    }
-
-    // First name and last name of a person
-    private String fullName(Person person) {
-        return person.getFirstName() + " " + person.getLastName();
     }
 }

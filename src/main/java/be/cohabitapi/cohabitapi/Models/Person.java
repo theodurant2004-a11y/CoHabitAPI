@@ -246,6 +246,10 @@ public abstract class Person {
         return person;
     }
 
+    public String getFullName() {
+        return getFirstName() + " " + getLastName();
+    }
+
 
     //--------------------------- OVERLOADS ---------------------------
 

@@ -122,7 +122,7 @@ public class Expense {
     }
 
 
-    // Constructors
+    // ---------------------- Constructors --------------------------
 
     // Only for Hibernate
     protected Expense() {
