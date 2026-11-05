@@ -1,0 +1,73 @@
+package be.cohabitapi.cohabitapi.Models;
+
+import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStringAttribute;
+
+import be.cohabitapi.cohabitapi.DAO.ProductDAO;
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "product")
+public class Product {
+
+    // ------------------------- Attributes and JPA Annotations --------------------------------------------------
+
+    // @Id specifies a primary key
+    @Id
+    // @GeneratedValue specifies the auto-increment constraint
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    // @Column specifies which column of the table is involved
+    @Column(name = "product_id")
+    private Integer id;
+
+    @Column(name = "product_name", length = 100, nullable = false)
+    private String name;
+
+    @Column(name = "product_category", length = 100, nullable = false)
+    private String category;
+
+
+    // ------------------------- Getters and Setters --------------------------------------------------
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = normalizeStringAttribute(name, "name", 100);
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = normalizeStringAttribute(category, "category", 100);
+    }
+
+
+    // ------------------------- Constructors --------------------------------------------------
+
+    protected Product() {}
+
+    public Product(String name, String category) {
+        setName(name);
+        setCategory(category);
+    }
+
+
+    // ------------------------- DAO methods --------------------------------------------------
+
+    public void create(ProductDAO dao) { dao.create(this); }
+
+    public static Product findByNameAndCategory(ProductDAO dao, String name, String category) { return dao.findByNameAndCategory(name, category); }
+
+    public static Product findById(ProductDAO dao, int id) { return dao.findById(id); }
+}

@@ -1,11 +1,17 @@
 package be.cohabitapi.cohabitapi.Models;
 
+import static be.cohabitapi.cohabitapi.API.APIResponse.error;
+import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStringAttribute;
+
 import be.cohabitapi.cohabitapi.DAO.DAO;
-import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
-import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
+import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
+import be.cohabitapi.cohabitapi.EXCEPTION.NoItemInTheListException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotMemberOfRoomShareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
+import jakarta.ws.rs.core.Response;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
@@ -41,8 +47,9 @@ public class RoomShare {
     // Return the entire object, not only the id
     private Owner owner;
 
-    @OneToMany(mappedBy = "roomshare") // Make the bi-directionnal link with the roomie
-    private final List<Roomie> roomies = new ArrayList<>();
+    @OneToMany(mappedBy = "roomshare")
+    @OrderBy("idPerson") // Stable order: the split and the colors depend on it
+    private List<Roomie> roomies = new ArrayList<>();
 
 
     // ------------------------- Getters and Setters --------------------------------------------------
@@ -94,8 +101,7 @@ public class RoomShare {
 
     // ------------------------- Constructors --------------------------------------------------
 
-    // Not in public so as not to allow outsiders to use this empty constructor
-    // Not in private because Hibernate needs to use this empty constructor
+    // Only for Hibernate
     protected RoomShare() {
     }
 
@@ -112,19 +118,15 @@ public class RoomShare {
 
     // ------------------------- Utility methods --------------------------------------------------
 
-    // Trim any string attribute and checks if they are null, empty or upper than the max length
-    private static String normalizeStringAttribute(String attribute, String attributeName, int maxLength){
-        if (attribute == null)
-            throw new IllegalArgumentException("The " + attributeName + " cannot be null");
-
-        String trimmed = attribute.trim();
-
-        if (trimmed.isEmpty())
-            throw new IllegalArgumentException("The " + attributeName + " cannot be empty");
-        if (trimmed.length() > maxLength)
-            throw new IllegalArgumentException("The " + attributeName + " cannot be longer than " + maxLength + " characters");
-
-        return trimmed;
+    public static RoomShare findRoomShareByRoomie(PersonDAO personDAO, RoomShareDAO roomShareDAO, int userId)
+    {
+        Roomie roomie = Roomie.checkRightRoomie(personDAO, userId);
+        if (roomie.getStatusMember() != MembershipStatus.ACCEPTED) throw new NotMemberOfRoomShareException();
+        // We do not juste use roomie.getRoomShare(),
+        // because we're not sure that
+        // this is a whole object well-completed
+        // So, we regenerate it with findById()
+        return RoomShare.findById(roomShareDAO, roomie.getRoomshare().getId());
     }
 
     // We create our own method to generate de invitation key
@@ -158,6 +160,30 @@ public class RoomShare {
         roomie.setRoomshare(this);
     }
 
+    // The pending roomies are in the list too, so we keep only the accepted ones
+    public List<Roomie> getAcceptedRoomies() {
+        List<Roomie> accepted = new ArrayList<>();
+
+        for (Roomie roomie : roomies) {
+            if (roomie.getStatusMember() == MembershipStatus.ACCEPTED)
+                accepted.add(roomie);
+        }
+
+        return accepted;
+    }
+
+    // Looks for an accepted roomie of this roomshare with his id
+    public Roomie findRoomie(Integer id) {
+        if (id == null)
+            throw new IllegalArgumentException("A roomie is required.");
+
+        for (Roomie roomie : getAcceptedRoomies()) {
+            if (id.equals(roomie.getIdPerson()))
+                return roomie;
+        }
+        throw new IllegalArgumentException("A roomie of the list does not belong to your roomshare.");
+    }
+
 
     // ------------------------- DAO methods --------------------------------------------------
 
@@ -186,7 +212,7 @@ public class RoomShare {
             // A pending roomie is not a member yet, so he cannot see the others
             Roomie roomie = (Roomie) user;
             if (roomie.getStatusMember() != MembershipStatus.ACCEPTED)
-                throw new UnauthorizedUserException();
+                throw new NotInRoomshareException();
 
             // The roomshare and its owner are @ManyToOne, so they were loaded with the roomie (EAGER)
             owner = roomie.getRoomshare().getOwner();
@@ -199,4 +225,6 @@ public class RoomShare {
 
         return members;
     }
+
+    public static RoomShare findById(RoomShareDAO dao, Integer id) { return dao.findById(id); }
 }

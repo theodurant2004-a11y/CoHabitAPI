@@ -3,7 +3,7 @@ package be.cohabitapi.cohabitapi.API;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.DTO.*;
-import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.Person;
@@ -67,7 +67,7 @@ public class RoomShareAPI {
         catch (UserNotFoundException e) {
             return error(Response.Status.UNAUTHORIZED, e.getMessage());
         }
-        catch (UnauthorizedUserException e) {
+        catch (ForbiddenRoleException e) {
             return error(Response.Status.FORBIDDEN, e.getMessage());
         }
         catch(RuntimeException e){
@@ -166,7 +166,7 @@ public class RoomShareAPI {
             // 401: neutral message, so nobody can find out which emails have an account
             return error(Response.Status.UNAUTHORIZED, "Authentication required.");
 
-        } catch (UnauthorizedUserException e) {
+        } catch (ForbiddenRoleException e) {
             // 403: a roomie cannot see the requests, only an owner
             return error(Response.Status.FORBIDDEN, e.getMessage());
 
@@ -219,7 +219,7 @@ public class RoomShareAPI {
             // 401: neutral message
             return error(Response.Status.UNAUTHORIZED, "Authentication required.");
 
-        } catch (UnauthorizedUserException e) {
+        } catch (ForbiddenRoleException e) {
             // 403: only an owner can answer a request
             return error(Response.Status.FORBIDDEN, e.getMessage());
 
@@ -274,7 +274,7 @@ public class RoomShareAPI {
             // 401: neutral message, so nobody can find out which emails have an account
             return error(Response.Status.UNAUTHORIZED, "Authentication required.");
 
-        } catch (UnauthorizedUserException e) {
+        } catch (NotInRoomshareException e) {
             // 403: a roomie who is not accepted yet cannot see the members
             return error(Response.Status.FORBIDDEN, e.getMessage());
 
@@ -313,7 +313,7 @@ public class RoomShareAPI {
             // 401: neutral message
             return error(Response.Status.UNAUTHORIZED, "Authentication required.");
 
-        } catch (UnauthorizedUserException e) {
+        } catch (ForbiddenRoleException e) {
             // 403: only an owner can remove a roomie
             return error(Response.Status.FORBIDDEN, e.getMessage());
 
