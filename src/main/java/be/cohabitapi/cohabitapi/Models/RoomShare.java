@@ -38,8 +38,9 @@ public class RoomShare {
     // Return the entire object, not only the id
     private Owner owner;
 
-    @OneToMany(mappedBy = "roomshare") // Make the bi-directionnal link with the roomie
-    private final List<Roomie> roomies = new ArrayList<>();
+    @OneToMany(mappedBy = "roomshare") // Make the bi-directional link with the roomie
+    @OrderBy("idPerson") // Stable order: the split and the colors depend on it
+    private List<Roomie> roomies = new ArrayList<>();
 
 
     // ------------------------- Getters and Setters --------------------------------------------------
