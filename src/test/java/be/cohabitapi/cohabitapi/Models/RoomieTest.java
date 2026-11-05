@@ -8,7 +8,8 @@ import be.cohabitapi.cohabitapi.EXCEPTION.InvalidInvitationKeyException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.JoinRequestNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NoPendingRequestException;
-import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
+import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
+import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -503,14 +504,14 @@ class RoomieTest {
     }
 
     @Test
-    @DisplayName("answerJoinRequest: a roomie tries to answer -> UnauthorizedUserException")
+    @DisplayName("answerJoinRequest: a roomie tries to answer -> ForbiddenRoleException")
     void answerJoinRequest_roomieInsteadOfOwner_throws() {
         // Arrange: the email is the one of a roomie
         Roomie roomie = pendingRoomie(ownerWithId());
         when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
 
         // Act + Assert: the API turns it into a 403
-        assertThrows(UnauthorizedUserException.class,
+        assertThrows(ForbiddenRoleException.class,
                 () -> Roomie.answerJoinRequest(EMAIL, 2, true, personDAO));
 
         // Nothing changed and nothing is saved
@@ -610,13 +611,13 @@ class RoomieTest {
     }
 
     @Test
-    @DisplayName("findPendingRequests: a roomie -> UnauthorizedUserException")
+    @DisplayName("findPendingRequests: a roomie -> ForbiddenRoleException")
     void findPendingRequests_roomie_throws() {
         // Arrange: the email is the one of a roomie
         when(personDAO.findByEmail(EMAIL)).thenReturn(roomie());
 
         // Act + Assert
-        assertThrows(UnauthorizedUserException.class,
+        assertThrows(ForbiddenRoleException.class,
                 () -> Roomie.findPendingRequests(EMAIL, personDAO));
 
         // The list was never asked to the db
