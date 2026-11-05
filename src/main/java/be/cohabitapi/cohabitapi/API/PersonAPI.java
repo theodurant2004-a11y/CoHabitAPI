@@ -97,8 +97,8 @@ public class PersonAPI {
             // An owner has none of this: the fields stay null
             if (personLogin instanceof Roomie roomie) {
                 userResponse.setMembershipStatus(roomie.getStatusMember().name().toLowerCase(Locale.ROOT)); // PENDING becomes "pending"
-                if (roomie.getRoomshare() != null) {
-                    userResponse.setRoomshareName(roomie.getRoomshare().getName());
+                if (roomie.getRoomShare() != null) {
+                    userResponse.setRoomshareName(roomie.getRoomShare().getName());
                 }
             }
 

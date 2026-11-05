@@ -2,8 +2,7 @@ package be.cohabitapi.cohabitapi.Models;
 
 import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStringAttribute;
 
-import be.cohabitapi.cohabitapi.DAO.DAO;
-import be.cohabitapi.cohabitapi.DAO.ShoppingListDAO;
+import be.cohabitapi.cohabitapi.DAO.ProductDAO;
 import jakarta.persistence.*;
 
 @Entity
@@ -66,7 +65,9 @@ public class Product {
 
     // ------------------------- DAO methods --------------------------------------------------
 
-    public void create(ShoppingListDAO dao) { dao.create(this); }
+    public void create(ProductDAO dao) { dao.create(this); }
 
-    public static Product findByNameAndCategory(ShoppingListDAO dao, String name, String category) { return dao.findByNameAndCategory(name, category); }
+    public static Product findByNameAndCategory(ProductDAO dao, String name, String category) { return dao.findByNameAndCategory(name, category); }
+
+    public static Product findById(ProductDAO dao, int id) { return dao.findById(id); }
 }

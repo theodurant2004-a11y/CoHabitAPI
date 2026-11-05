@@ -1,82 +1,233 @@
 package be.cohabitapi.cohabitapi.API;
 
-import be.cohabitapi.cohabitapi.DAO.PersonDAO;
-import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
-import be.cohabitapi.cohabitapi.DAO.ShoppingListDAO;
-import be.cohabitapi.cohabitapi.DTO.AddItemReq;
-import be.cohabitapi.cohabitapi.DTO.AddItemResp;
-import be.cohabitapi.cohabitapi.EXCEPTION.RoomShareNotFoundException;
-import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
-import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
+import be.cohabitapi.cohabitapi.DAO.*;
+import be.cohabitapi.cohabitapi.DTO.*;
+import be.cohabitapi.cohabitapi.EXCEPTION.*;
 import be.cohabitapi.cohabitapi.Models.*;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 import static be.cohabitapi.cohabitapi.API.APIResponse.error;
 import static be.cohabitapi.cohabitapi.Models.Roomie.checkRightRoomie;
+import static be.cohabitapi.cohabitapi.Models.Roomie.findById;
 
-@Path("/shoppinglist")
+@Path("/users/{userId}/shopping-items")
 public class ShoppingListAPI {
 
-    @Inject private ShoppingListDAO shoppingListDAO;
+    @Inject private ItemDAO itemDAO;
+    @Inject private ProductDAO productDAO;
     @Inject private PersonDAO personDAO;
     @Inject private RoomShareDAO roomShareDAO;
+    @Inject private ExpenseDAO expenseDAO;
+
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getShoppingList(@PathParam("userId") int userId) {
+        try {
+            RoomShare roomShare = RoomShare.findRoomShareByRoomie(personDAO, roomShareDAO, userId);
+
+            List<GetItemResponse> itemsDTO = new ArrayList<>();
+
+            List<Item> items = Item.findAll(itemDAO, roomShare.getId());
+
+            for(Item i : items)
+            {
+                GetItemResponse itemDTO = new GetItemResponse(
+                        i.getProduct().getId(),
+                        i.getProduct().getName(),
+                        i.getProduct().getCategory(),
+                        i.getQuantity(),
+                        i.getStatus()
+                );
+                itemsDTO.add(itemDTO);
+            }
+
+            return Response.status(Response.Status.OK)
+                    .entity(itemsDTO)
+                    .build();
+        }
+        catch (UserNotFoundException | RoomShareNotFoundException e) {
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+        }
+        catch (NotMemberOfRoomShareException | ForbiddenRoleException e) {
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+        }
+        catch (IllegalArgumentException | NoItemInTheListException e) {
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+        }
+        catch (NullPointerException e) {
+            return error(Response.Status.NOT_FOUND, "A null value was found.");
+        }
+        catch (RuntimeException e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Internal Server Error.");
+        }
+    }
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response addItem(AddItemReq req) {
-        if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
-        if (req.getRoomshareId() == null) return error(Response.Status.BAD_REQUEST, "Room share ID invalid.");
+    public Response addItem(@PathParam("userId") int userId, AddItemReq req) {
+        if (req == null ||
+                req.getName() == null ||
+                req.getCategory() == null ||
+                req.getQuantity() == null
+        ) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
 
         try {
-            // Verifies that it is a roomie
-            Roomie roomie = checkRightRoomie(req.getRoomieEmail(), personDAO);
-            RoomShare roomShare = RoomShare.findById(roomShareDAO, req.getRoomshareId());
+            RoomShare roomShare = RoomShare.findRoomShareByRoomie(personDAO, roomShareDAO, userId);
 
             // Does the product requested to add not exist ?
-            Product product = Product.findByNameAndCategory(shoppingListDAO, req.getName(), req.getCategory());
+            Product product = Product.findByNameAndCategory(productDAO, req.getName(), req.getCategory());
             if (product == null) {
                 product = new Product(req.getName(), req.getCategory());
-                product.create(shoppingListDAO);
+                product.create(productDAO);
             }
 
-            if (roomShare.getShoppingList() == null ) {
-                ShoppingList shoppingList = new ShoppingList();
-                roomShare.setShoppingList(shoppingList); // Add in the same time the roomshare to the shopping list
-                shoppingList.create(shoppingListDAO);
-            }
-            Item item = new Item(product, roomShare.getShoppingList(), req.getQuantity());
-            item.create(shoppingListDAO);
+            Item item = new Item(product, roomShare, req.getQuantity());
+            item.create(itemDAO);
 
-            // Build of the response using a DTO and not the real model
-            AddItemResp resp = new AddItemResp(item.getProduct().getId(), item.getShoppingList().getId());
-
-            return Response.status(Response.Status.CREATED)
-                    .entity(Collections.singletonMap("item", resp))
-                    .build();
+            return Response.status(Response.Status.CREATED).build();
+        }
+        catch (UserNotFoundException | RoomShareNotFoundException e) {
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+        }
+        catch (NotMemberOfRoomShareException | ForbiddenRoleException e) {
+            return error(Response.Status.FORBIDDEN, e.getMessage());
         }
         catch (IllegalArgumentException e) {
             return error(Response.Status.BAD_REQUEST, e.getMessage());
         }
-        catch (UserNotFoundException | RoomShareNotFoundException e) {
-            return error(Response.Status.UNAUTHORIZED, e.getMessage());
+        catch (NullPointerException e) {
+            return error(Response.Status.NOT_FOUND, "A null value was found");
         }
-        catch (UnauthorizedUserException e) {
-            return error(Response.Status.FORBIDDEN, e.getMessage());
+        catch (ItemAlreadyExistsException e) {
+            return error(Response.Status.CONFLICT, e.getMessage());
         }
-        catch(RuntimeException e){
-            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
+        catch (RuntimeException e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Internal Server Error.");
         }
     }
 
-    @GET
+    @PUT
+    @Path("/{productId}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response createShoppingList() {}
+    public Response updateItem(@PathParam("userId") int userId, @PathParam("productId") int productId, UpdateItemReq req) {
+        if (req == null || req.getQuantity() == null || req.getStatus() == null)
+            return error(Response.Status.BAD_REQUEST, "JSON invalid.");
+
+        try {
+            RoomShare roomShare = RoomShare.findRoomShareByRoomie(personDAO, roomShareDAO, userId);
+
+            Product product = Product.findById(productDAO, productId);
+
+            Item item = Item.findById(itemDAO, product.getId(), roomShare.getId());
+            item.setStatus(req.getStatus());
+            item.setQuantity(req.getQuantity());
+            item.update(itemDAO); // Update in db
+
+            return Response.status(Response.Status.OK).build();
+        }
+        catch (UserNotFoundException | RoomShareNotFoundException |
+               ItemNotFoundException | ProductNotFoundException e) {
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+        }
+        catch (NotMemberOfRoomShareException | ForbiddenRoleException e) {
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+        }
+        catch (IllegalArgumentException e) {
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+        }
+        catch (NullPointerException e) {
+            return error(Response.Status.NOT_FOUND, "A null value was found.");
+        }
+        catch (RuntimeException e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Internal Server Error.");
+        }
+    }
+
+    @DELETE
+    @Path("/{productId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response deleteItem(@PathParam("userId") int userId, @PathParam("productId") int productId) {
+        try {
+            RoomShare roomShare = RoomShare.findRoomShareByRoomie(personDAO, roomShareDAO, userId);
+            Product product = Product.findById(productDAO, productId);
+            Item item = Item.findById(itemDAO, product.getId(), roomShare.getId());
+            item.delete(itemDAO);
+
+            return Response.status(Response.Status.OK).build();
+        }
+        catch (UserNotFoundException | RoomShareNotFoundException |
+               ItemNotFoundException | ProductNotFoundException e) {
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+        }
+        catch (NotMemberOfRoomShareException | ForbiddenRoleException e) {
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+        }
+        catch (IllegalArgumentException e) {
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+        }
+        catch (NullPointerException e) {
+            return error(Response.Status.NOT_FOUND, "A null value was found.");
+        }
+        catch (RuntimeException e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Internal Server Error.");
+        }
+    }
+
+    @POST
+    @Path("/confirm-purchases")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response confirmPurchases(@PathParam("userId") int userId, ConfirmPurchasesReq req) {
+        if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
+
+        try {
+            Roomie buyer = checkRightRoomie(personDAO, userId);
+            RoomShare roomShare = buyer.loadRoomshare(roomShareDAO);
+            List<Roomie> allRoomies = roomShare.getAcceptedRoomies();
+            List<Integer> allRoomiesIds = new ArrayList<>();
+            for (Roomie roomie : allRoomies) {
+                allRoomiesIds.add(roomie.getIdPerson());
+            }
+
+            buyer.addExpense(
+                    req.getDescription(),
+                    req.getAmount(),
+                    java.time.LocalDate.now().toString(),
+                    "food", // TODO : To replace when the catgeory "groceries" will be added
+                    buyer.getIdPerson(),
+                    allRoomiesIds,
+                    expenseDAO
+            );
+
+            Item.deleteCheckedItems(itemDAO, roomShare.getId());
+
+            return Response.status(Response.Status.OK)
+                    .build();
+        }
+        catch (UserNotFoundException | RoomShareNotFoundException |
+               ItemNotFoundException | ProductNotFoundException e) {
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+        }
+        catch (NotInRoomshareException | NotMemberOfRoomShareException | ForbiddenRoleException e) {
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+        }
+        catch (IllegalArgumentException | NoItemCheckedException e) {
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+        }
+        catch (NullPointerException e) {
+            return error(Response.Status.NOT_FOUND, "A null value was found.");
+        }
+        catch (RuntimeException e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Internal Server Error.");
+        }
+    }
 
 }

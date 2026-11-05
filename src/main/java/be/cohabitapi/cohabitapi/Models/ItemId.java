@@ -5,13 +5,13 @@ import java.util.Objects;
 
 public class ItemId implements Serializable {
     private Integer product;
-    private Integer shoppingList;
+    private Integer roomShare;
 
     public ItemId() {}
 
-    public ItemId(Integer product, Integer shoppingList) {
+    public ItemId(Integer product, Integer roomShare) {
         this.product = product;
-        this.shoppingList = shoppingList;
+        this.roomShare = roomShare;
     }
 
     @Override
@@ -20,11 +20,11 @@ public class ItemId implements Serializable {
         if (o == null || getClass() != o.getClass()) return false;
         ItemId itemId = (ItemId) o;
         return Objects.equals(product, itemId.product) &&
-                Objects.equals(shoppingList, itemId.shoppingList);
+                Objects.equals(roomShare, itemId.roomShare);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(product, shoppingList);
+        return Objects.hash(product, roomShare);
     }
 }

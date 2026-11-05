@@ -1,10 +1,15 @@
 package be.cohabitapi.cohabitapi.Models;
 
+import static be.cohabitapi.cohabitapi.API.APIResponse.error;
 import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStringAttribute;
 
 import be.cohabitapi.cohabitapi.DAO.DAO;
+import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
+import be.cohabitapi.cohabitapi.EXCEPTION.NoItemInTheListException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotMemberOfRoomShareException;
 import jakarta.persistence.*;
+import jakarta.ws.rs.core.Response;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
@@ -40,11 +45,8 @@ public class RoomShare {
     // Return the entire object, not only the id
     private Owner owner;
 
-    @OneToMany(mappedBy = "roomshare") // Make the bi-directionnal link with the roomie
+    @OneToMany(mappedBy = "roomShare") // Make the bi-directionnal link with the roomie
     private final List<Roomie> roomies = new ArrayList<>();
-
-    @OneToOne(mappedBy = "roomshare")
-    private ShoppingList shoppingList;
 
 
     // ------------------------- Getters and Setters --------------------------------------------------
@@ -93,13 +95,6 @@ public class RoomShare {
         return roomies;
     }
 
-    public ShoppingList getShoppingList() { return shoppingList; }
-
-    public void setShoppingList(ShoppingList shoppingList) {
-        Objects.requireNonNull(shoppingList);
-        shoppingList.setRoomShare(this);
-        this.shoppingList = shoppingList;
-    }
 
     // ------------------------- Constructors --------------------------------------------------
 
@@ -119,6 +114,17 @@ public class RoomShare {
 
 
     // ------------------------- Utility methods --------------------------------------------------
+
+    public static RoomShare findRoomShareByRoomie(PersonDAO personDAO, RoomShareDAO roomShareDAO, int userId)
+    {
+        Roomie roomie = Roomie.checkRightRoomie(personDAO, userId);
+        if (roomie.getStatusMember() != MembershipStatus.ACCEPTED) throw new NotMemberOfRoomShareException();
+        // We do not juste use roomie.getRoomShare(),
+        // because we're not sure that
+        // this is a whole object well-completed
+        // So, we regenerate it with findById()
+        return RoomShare.findById(roomShareDAO, roomie.getRoomShare().getId());
+    }
 
     // We create our own method to generate de invitation key
     // We choose to have an invitation key of 6 characters
@@ -145,10 +151,10 @@ public class RoomShare {
             throw new IllegalArgumentException("The roomie cannot be null");
         if (roomies.contains(roomie))
             throw new IllegalArgumentException("The roomie already exists");
-        if (roomie.getRoomshare() != null)
+        if (roomie.getRoomShare() != null)
             throw new IllegalArgumentException("The roomie already belongs to a room share");
         roomies.add(roomie);
-        roomie.setRoomshare(this);
+        roomie.setRoomShare(this);
     }
 
 

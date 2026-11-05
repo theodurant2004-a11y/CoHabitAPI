@@ -7,9 +7,6 @@ import be.cohabitapi.cohabitapi.EXCEPTION.AlreadyInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidInvitationKeyException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
-import be.cohabitapi.cohabitapi.DAO.PersonDAO;
-import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
-import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
 
 import java.util.Objects;
@@ -25,10 +22,7 @@ public class Roomie extends Person{
 
     @ManyToOne
     @JoinColumn(name = "roomshare_id")
-    private RoomShare roomshare;
-
-
-    // ------------------------- Getter and Setter --------------------------------------------------
+    private RoomShare roomShare;
 
     // The membership status
     // @Convert: JPA uses the converter inside the enum to store it as a number
@@ -38,14 +32,17 @@ public class Roomie extends Person{
     @Column(name = "roomie_status", nullable = false)
     private MembershipStatus statusMember = MembershipStatus.NONE;
 
-    public RoomShare getRoomshare() {
-        return roomshare;
+
+    // ------------------------- Getter and Setter --------------------------------------------------
+
+    public RoomShare getRoomShare() {
+        return roomShare;
     }
 
     // Private visibility because we don't want that someone can access this setter from the outside
-    void setRoomshare(RoomShare roomshare) {
+    void setRoomShare(RoomShare roomshare) {
         Objects.requireNonNull(roomshare);
-        this.roomshare = roomshare;
+        this.roomShare = roomshare;
     }
 
 
@@ -65,9 +62,9 @@ public class Roomie extends Person{
 
     // Maybe useless, we will see in future
     // Same as the constructor above but with the possibility to join directly a room share
-    public Roomie(String lastName, String firstName, String email, String password, RoomShare roomshare) {
+    public Roomie(String lastName, String firstName, String email, String password, RoomShare roomShare) {
         super(lastName, firstName, email, password);
-        roomshare.addRoomie(this); // Add the roomie to the room share list but add the roomshare to the roomie too
+        roomShare.addRoomie(this); // Add the roomie to the room share list but add the roomshare to the roomie too
         // He joins directly, so he is an accepted member
         this.statusMember = MembershipStatus.ACCEPTED;
     }
@@ -82,10 +79,10 @@ public class Roomie extends Person{
             throw new IllegalArgumentException("The roomshare cannot be null");
 
         // Already in a roomshare, or a request is already waiting: refuse and the API turns it into a 409
-        if (this.roomshare != null || this.statusMember != MembershipStatus.NONE)
+        if (this.roomShare != null || this.statusMember != MembershipStatus.NONE)
             throw new AlreadyInRoomshareException();
 
-        this.roomshare = roomshare;
+        this.roomShare = roomshare;
         this.statusMember = MembershipStatus.PENDING;
     }
 
@@ -147,7 +144,7 @@ public class Roomie extends Person{
 
     // ------------------------- Utility methods --------------------------------------------------
 
-    public static Roomie checkRightRoomie(String roomieEmail, PersonDAO dao) {
+    public static Roomie checkRightRoomie(PersonDAO dao, String roomieEmail) {
         String cleanEmail;
 
         // Using the Mother method to be sure that the email is in lower case and not empty
@@ -162,7 +159,18 @@ public class Roomie extends Person{
 
         // Throw a specific exception if the user role is not "roomie"
         if(!(roomie instanceof Roomie))
-            throw new UnauthorizedUserException();
+            throw new ForbiddenRoleException();
+
+        return (Roomie)roomie;
+    }
+
+    public static Roomie checkRightRoomie(PersonDAO dao, int userId) {
+        // Returns a Person object if the email corresponds to someone
+        Person roomie = Person.findById(dao, userId);
+
+        // Throw a specific exception if the user role is not "roomie"
+        if(!(roomie instanceof Roomie))
+            throw new ForbiddenRoleException();
 
         return (Roomie)roomie;
     }

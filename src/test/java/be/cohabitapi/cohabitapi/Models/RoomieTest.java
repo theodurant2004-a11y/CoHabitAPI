@@ -73,7 +73,7 @@ class RoomieTest {
 
         // Assert: he has no roomshare yet and his status is NONE
         // assertNull: the value must be null
-        assertNull(roomie.getRoomshare());
+        assertNull(roomie.getRoomShare());
         // assertSame: exactly the same object (perfect to compare enum values). Ckeck if both are  none
         assertSame(MembershipStatus.NONE, roomie.getStatusMember());
     }
@@ -105,7 +105,7 @@ class RoomieTest {
         roomie.sendJoinRequest(roomshare);
 
         // Assert: the roomshare is saved in the roomie and the status is PENDING
-        assertSame(roomshare, roomie.getRoomshare());
+        assertSame(roomshare, roomie.getRoomShare());
         assertSame(MembershipStatus.PENDING, roomie.getStatusMember());
     }
 
@@ -166,7 +166,7 @@ class RoomieTest {
         // Assert on the result
         assertSame(roomie, result);
         assertSame(MembershipStatus.PENDING, result.getStatusMember());
-        assertSame(roomshare, result.getRoomshare());
+        assertSame(roomshare, result.getRoomShare());
 
         // verify(mock).method(argument): checks that the fake dao was calles like this
         // times(1) = exactly one time. So update(roomie) must have been called once (the save)

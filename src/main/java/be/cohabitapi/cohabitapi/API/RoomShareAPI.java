@@ -4,7 +4,6 @@ import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.DTO.CreateRoomShareRequest;
 import be.cohabitapi.cohabitapi.DTO.CreateRoomShareResponse;
-import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.RoomShare;
@@ -63,7 +62,7 @@ public class RoomShareAPI {
         catch (UserNotFoundException e) {
             return error(Response.Status.UNAUTHORIZED, e.getMessage());
         }
-        catch (UnauthorizedUserException e) {
+        catch (ForbiddenRoleException e) {
             return error(Response.Status.FORBIDDEN, e.getMessage());
         }
         catch(RuntimeException e){
@@ -94,7 +93,7 @@ public class RoomShareAPI {
             // We answer with a small DTO, never with the real model (it contains the password hash)
             JoinRoomShareResponse resp = new JoinRoomShareResponse(
                     roomie.getStatusMember().name().toLowerCase(Locale.ROOT), // PENDING becomes "pending"
-                    roomie.getRoomshare().getName());
+                    roomie.getRoomShare().getName());
 
             // 200 OK: nothing is created.the state of an existing roomie changes
             return Response.ok(Collections.singletonMap("joinRequest", resp)).build();

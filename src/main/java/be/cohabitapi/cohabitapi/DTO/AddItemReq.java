@@ -11,51 +11,19 @@ public class AddItemReq {
 
     private String quantity;
 
-    // To find the roomshare's shopping list to add the item
-    private Integer roomshareId;
+    public String getName() { return name; }
 
-    // We don't need the current user except to check if it's a roomie or no
-    private String roomieEmail;
+    public void setName(String name) { this.name = name; }
 
-    public String getName() {
-        return name;
-    }
+    public String getCategory() { return category; }
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getCategory() {
-        return category;
-    }
-
-    public void setCategory(String category) {
-        this.category = category;
-    }
+    public void setCategory(String category) { this.category = category; }
 
     public String getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(String quantity) {
-        this.quantity = quantity;
-    }
-
-    public Integer getRoomshareId() {
-        return roomshareId;
-    }
-
-    public void setRoomshareId(Integer roomshareId) {
-        this.roomshareId = roomshareId;
-    }
-
-    public String getRoomieEmail() {
-        return roomieEmail;
-    }
-
-    public void setRoomieEmail(String roomieEmail) {
-        this.roomieEmail = roomieEmail;
-    }
+    public void setQuantity(String quantity) { this.quantity = quantity; }
 
     public AddItemReq() {}
 }
