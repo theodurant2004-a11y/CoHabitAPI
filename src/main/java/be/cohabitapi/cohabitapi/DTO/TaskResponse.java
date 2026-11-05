@@ -26,13 +26,13 @@ public class TaskResponse {
 
     // Builds the answer from the model (reused by add, list and update)
     public TaskResponse(Task task) {
-        this.id = task.getId();
+        this.id = task.getIdTask();
         this.name = task.getName();
         this.description = task.getDescription();
         // LocalDate -> "2026-10-27", or null if there is no due date
         this.dueDate = task.getDueDate() == null ? null : task.getDueDate().toString();
         // PENDING -> "pending"
-        this.status = task.getStatus().toLabel();
+        this.status = task.getStatusTask().toLabel();
 
         // Each Roomie object becomes a small TaskRoomieResponse
         for (Roomie roomie : task.getRoomies()) {

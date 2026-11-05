@@ -60,11 +60,11 @@ class TaskTest {
     void constructor_validValues_setsEverything() {
         Task task = newTask();
 
-        assertNull(task.getId());   // no id before the database gives one
+        assertNull(task.getIdTask());   // no id before the database gives one
         assertEquals("Clean the kitchen", task.getName());
         assertEquals("With soap", task.getDescription());
         assertEquals(LocalDate.of(2026, 12, 15), task.getDueDate());
-        assertEquals(TaskStatus.PENDING, task.getStatus());
+        assertEquals(TaskStatus.PENDING, task.getStatusTask());
         assertSame(roomshare, task.getRoomshare());
         assertTrue(task.getRoomies().isEmpty());
     }
@@ -154,13 +154,13 @@ class TaskTest {
     @Test
     void setStatus_changesTheStatus() {
         Task task = newTask();
-        task.setStatus(TaskStatus.COMPLETED);
-        assertEquals(TaskStatus.COMPLETED, task.getStatus());
+        task.setStatusTask(TaskStatus.COMPLETED);
+        assertEquals(TaskStatus.COMPLETED, task.getStatusTask());
     }
 
     @Test
     void setStatus_null_throws() {
-        assertThrows(IllegalArgumentException.class, () -> newTask().setStatus(null));
+        assertThrows(IllegalArgumentException.class, () -> newTask().setStatusTask(null));
     }
 
     @Test

@@ -22,7 +22,7 @@ public class Task {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "task_id")
-    private Integer id; // Integer because the id is null before the insert
+    private Integer idTask; // Integer because the id is null before the insert
 
     @Column(name = "task_name", length = 100, nullable = false)
     private String name;
@@ -38,7 +38,7 @@ public class Task {
     // Stored as a number (1 = PENDING, 2 = COMPLETED)
     @Convert(converter = TaskStatus.DbConverter.class)
     @Column(name = "task_status", nullable = false)
-    private TaskStatus status = TaskStatus.PENDING;
+    private TaskStatus statusTask = TaskStatus.PENDING;
 
     // a task belongs to one roomshare
     // This side fills the roomshare_id column
@@ -63,19 +63,19 @@ public class Task {
     }
 
     // The setters check every value
-    public Task(String name, String description, LocalDate dueDate, TaskStatus status, RoomShare roomshare) {
+    public Task(String name, String description, LocalDate dueDate, TaskStatus statusTask, RoomShare roomshare) {
         setName(name);
         setDescription(description);
         setDueDate(dueDate);
-        setStatus(status);
+        setStatusTask(statusTask);
         setRoomshare(roomshare);
     }
 
 
     // ------------------------- Getters and Setters -------------------------
 
-    public Integer getId() {
-        return id;
+    public Integer getIdTask() {
+        return idTask;
     }
 
     public String getName() {
@@ -121,14 +121,14 @@ public class Task {
         this.dueDate = dueDate;
     }
 
-    public TaskStatus getStatus() {
-        return status;
+    public TaskStatus getStatusTask() {
+        return statusTask;
     }
 
-    public void setStatus(TaskStatus status) {
+    public void setStatusTask(TaskStatus status) {
         if (status == null)
             throw new IllegalArgumentException("The status is required.");
-        this.status = status;
+        this.statusTask = status;
     }
 
     public RoomShare getRoomshare() {
@@ -237,7 +237,7 @@ public class Task {
         task.setName(name);
         task.setDescription(description);
         task.setDueDate(cleanDueDate);
-        task.setStatus(cleanStatus);
+        task.setStatusTask(cleanStatus);
         task.replaceRoomies(roomieIds, personDAO);
 
         // 6. we send the object to the dao to update it the database
@@ -258,7 +258,7 @@ public class Task {
         Task task = findTaskOfRoomie(taskId, roomie, taskDAO);
 
         // 3. Only the status changes (400 if missing or unknown)
-        task.setStatus(TaskStatus.fromLabel(status));
+        task.setStatusTask(TaskStatus.fromLabel(status));
 
         // 4. Save it
         taskDAO.update(task);
@@ -277,7 +277,6 @@ public class Task {
         Task task = findTaskOfRoomie(taskId, roomie, taskDAO);
 
         // 3. Delete it (its lines in Task_Roomie are deleted too, the roomies are not touched)
-        taskDAO.delete(task);
         taskDAO.delete(task);
     }
 
