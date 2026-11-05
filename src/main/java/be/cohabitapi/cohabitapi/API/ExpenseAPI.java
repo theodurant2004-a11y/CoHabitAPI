@@ -11,6 +11,7 @@ import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Expense;
 import be.cohabitapi.cohabitapi.Models.ExpenseCategory;
 import be.cohabitapi.cohabitapi.Models.Person;
+import be.cohabitapi.cohabitapi.Models.Refund;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 import static be.cohabitapi.cohabitapi.API.APIResponse.error;
 
@@ -115,7 +116,7 @@ public class ExpenseAPI {
 
     // Model => DTO
     // This method only copies what the model calculated into the DTOs
-    private ExpensesResponse toResponse(Roomie me, List<Expense> mine, List<Expense> refunds) {
+    private ExpensesResponse toResponse(Roomie me, List<Expense> mine, List<Refund> refunds) {
         List<ExpensesResponse.MemberResponse> members = new ArrayList<>();
         List<ExpensesResponse.BalanceResponse> balanceList = new ArrayList<>();
 
@@ -148,9 +149,9 @@ public class ExpenseAPI {
         }
 
         List<ExpensesResponse.RefundResponse> refundList = new ArrayList<>();
-        for (Expense refund : refunds) {
+        for (Refund refund : refunds) {
             refundList.add(new ExpensesResponse.RefundResponse(
-                    fullName(refund.getDebtor()), fullName(refund.getCreditor()), refund.getSum()));
+                    fullName(refund.getFrom()), fullName(refund.getTo()), refund.getAmount()));
         }
 
         ExpensesResponse.SummaryResponse summary = new ExpensesResponse.SummaryResponse(

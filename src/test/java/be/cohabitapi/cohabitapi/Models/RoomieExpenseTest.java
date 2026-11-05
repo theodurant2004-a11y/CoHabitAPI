@@ -543,12 +543,12 @@ class RoomieExpenseTest {
         debt(10, second, me);
         debt(10, third, me);
 
-        List<Expense> refunds = me.suggestRefunds();
+        List<Refund> refunds = me.suggestRefunds();
 
         assertEquals(2, refunds.size());
-        for (Expense refund : refunds) {
-            assertSame(me, refund.getCreditor());
-            assertEquals(10.0, refund.getSum(), 0.001);
+        for (Refund refund : refunds) {
+            assertSame(me, refund.getTo());
+            assertEquals(10.0, refund.getAmount(), 0.001);
         }
     }
 
@@ -558,13 +558,13 @@ class RoomieExpenseTest {
         debt(15, second, me);
         debt(5, third, me);
 
-        List<Expense> refunds = me.suggestRefunds();
+        List<Refund> refunds = me.suggestRefunds();
 
         assertEquals(2, refunds.size());
-        assertSame(second, refunds.get(0).getDebtor());
-        assertEquals(15.0, refunds.get(0).getSum(), 0.001);
-        assertSame(third, refunds.get(1).getDebtor());
-        assertEquals(5.0, refunds.get(1).getSum(), 0.001);
+        assertSame(second, refunds.get(0).getFrom());
+        assertEquals(15.0, refunds.get(0).getAmount(), 0.001);
+        assertSame(third, refunds.get(1).getFrom());
+        assertEquals(5.0, refunds.get(1).getAmount(), 0.001);
     }
 
     @Test
@@ -573,13 +573,13 @@ class RoomieExpenseTest {
         debt(5, third, me);
         debt(10, third, second);
 
-        List<Expense> refunds = me.suggestRefunds();
+        List<Refund> refunds = me.suggestRefunds();
 
         assertEquals(2, refunds.size());
-        assertSame(second, refunds.get(0).getCreditor());   // the one who is owed the most is paid first
-        assertEquals(10.0, refunds.get(0).getSum(), 0.001);
-        assertSame(me, refunds.get(1).getCreditor());
-        assertEquals(5.0, refunds.get(1).getSum(), 0.001);
+        assertSame(second, refunds.get(0).getTo());   // the one who is owed the most is paid first
+        assertEquals(10.0, refunds.get(0).getAmount(), 0.001);
+        assertSame(me, refunds.get(1).getTo());
+        assertEquals(5.0, refunds.get(1).getAmount(), 0.001);
     }
 
     @Test

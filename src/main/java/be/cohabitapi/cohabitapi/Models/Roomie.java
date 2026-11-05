@@ -324,9 +324,8 @@ public class Roomie extends Person {
         return COLORS[position % COLORS.length];
     }
 
-    // A refund is an Expense that is not saved in the db
     // The roomie who owes the most pays the roomie who is owed the most
-    public List<Expense> suggestRefunds() {
+    public List<Refund> suggestRefunds() {
         List<Roomie> members = roomshare.getAcceptedRoomies();
 
         // Each roomie with his balance
@@ -335,7 +334,7 @@ public class Roomie extends Person {
             left.put(member, member.calculateBalanceInCents());
         }
 
-        List<Expense> refunds = new ArrayList<>();
+        List<Refund> refunds = new ArrayList<>();
 
         while (true) {
             // Find the biggest debtor and the biggest creditor
@@ -355,8 +354,7 @@ public class Roomie extends Person {
 
             // The refund is the smallest of the two amounts
             long amount = Math.min(-left.get(debtor), left.get(creditor));
-            refunds.add(new Expense("Refund", amount / 100.0, LocalDate.now(),
-                    ExpenseCategory.OTHER.getCode(), debtor, creditor));
+            refunds.add(new Refund(debtor, creditor, amount / 100.0));
 
             left.put(debtor, left.get(debtor) + amount);
             left.put(creditor, left.get(creditor) - amount);
