@@ -124,7 +124,7 @@ public class RoomShare {
         // because we're not sure that
         // this is a whole object well-completed
         // So, we regenerate it with findById()
-        return RoomShare.findById(roomShareDAO, roomie.getRoomShare().getId());
+        return RoomShare.findById(roomShareDAO, roomie.getRoomshare().getId());
     }
 
     // We create our own method to generate de invitation key

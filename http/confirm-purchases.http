@@ -2,5 +2,6 @@ POST http://localhost:8080/CoHabitAPI/api/users/382/shopping-items/confirm-purch
 Content-Type: application/json
 
 {
-  "total": 18
+  "description": "Courses Aldi",
+  "amount": 75
 }

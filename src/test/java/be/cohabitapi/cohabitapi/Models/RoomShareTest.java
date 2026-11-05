@@ -111,7 +111,7 @@ class RoomShareTest {
         rs.addRoomie(roomie);
 
         assertTrue(rs.getRoomies().contains(roomie), "The roomie must be added to the roomies list.");
-        assertEquals(rs, roomie.getRoomShare(), "The room share must be assigned to the roomie to maintain the bidirectional link.");
+        assertEquals(rs, roomie.getRoomshare(), "The room share must be assigned to the roomie to maintain the bidirectional link.");
     }
 
     @Test // If you try to add a null roomie

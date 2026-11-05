@@ -93,7 +93,7 @@ public class RoomShareAPI {
             // We answer with a small DTO, never with the real model (it contains the password hash)
             JoinRoomShareResponse resp = new JoinRoomShareResponse(
                     roomie.getStatusMember().name().toLowerCase(Locale.ROOT), // PENDING becomes "pending"
-                    roomie.getRoomShare().getName());
+                    roomie.getRoomshare().getName());
 
             // 200 OK: nothing is created.the state of an existing roomie changes
             return Response.ok(Collections.singletonMap("joinRequest", resp)).build();

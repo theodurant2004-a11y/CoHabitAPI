@@ -190,14 +190,15 @@ public class ShoppingListAPI {
 
         try {
             Roomie buyer = checkRightRoomie(personDAO, userId);
-            RoomShare roomShare = buyer.loadRoomshare(roomShareDAO);
+            Roomie loadedBuyer = buyer.loadRoomshare(roomShareDAO);
+            RoomShare roomShare = loadedBuyer.getRoomshare();
             List<Roomie> allRoomies = roomShare.getAcceptedRoomies();
             List<Integer> allRoomiesIds = new ArrayList<>();
             for (Roomie roomie : allRoomies) {
                 allRoomiesIds.add(roomie.getIdPerson());
             }
 
-            buyer.addExpense(
+            loadedBuyer.addExpense(
                     req.getDescription(),
                     req.getAmount(),
                     java.time.LocalDate.now().toString(),
@@ -226,7 +227,7 @@ public class ShoppingListAPI {
             return error(Response.Status.NOT_FOUND, "A null value was found.");
         }
         catch (RuntimeException e) {
-            return error(Response.Status.INTERNAL_SERVER_ERROR, "Internal Server Error.");
+            return error(Response.Status.INTERNAL_SERVER_ERROR, e.getMessage());
         }
     }
 

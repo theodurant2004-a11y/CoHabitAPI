@@ -1,7 +1,7 @@
-PUT http://localhost:8080/CoHabitAPI/api/users/382/shopping-items/181
+PUT http://localhost:8080/CoHabitAPI/api/users/382/shopping-items/302
 Content-Type: application/json
 
 {
   "quantity": "1L",
-  "status": false
+  "status": true
 }
