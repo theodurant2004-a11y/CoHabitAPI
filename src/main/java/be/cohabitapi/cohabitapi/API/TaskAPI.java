@@ -203,7 +203,7 @@ public class TaskAPI {
 
         } catch (UserNotFoundException e) {
             // 401: neutral message
-            return error(Response.Status.UNAUTHORIZED, "Authentication required.");
+            return error(Response.Status.UNAUTHORIZED, e.getMessage());
 
         } catch (ForbiddenRoleException e) {
             // 403: an owner cannot check a task
