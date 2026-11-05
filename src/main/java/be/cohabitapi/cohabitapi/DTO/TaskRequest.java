@@ -4,10 +4,11 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.List;
 
-// The shape of the JSON sent by the front to add a task
+// The shape of the JSON sent by the front to add a task (POST) or to update it (PUT)
+// Same fields for both: the model decides what is required (the status is required only for a PUT)
 // ignoreUnknown = true: if the front sends an extra field it is ignored instead of causing an error
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class TaskCreateRequest {
+public class TaskRequest {
 
     // Must have the same names as in the JSON
     private String name;
@@ -27,7 +28,7 @@ public class TaskCreateRequest {
     private String roomieEmail;
 
     // Jackson needs an empty constructor to create the object
-    public TaskCreateRequest() {
+    public TaskRequest() {
     }
 
     public String getName() {

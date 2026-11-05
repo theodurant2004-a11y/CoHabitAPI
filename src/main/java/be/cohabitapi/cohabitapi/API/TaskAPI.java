@@ -1,6 +1,7 @@
 package be.cohabitapi.cohabitapi.API;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
+import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.DAO.TaskDAO;
 import be.cohabitapi.cohabitapi.DTO.*;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
@@ -20,11 +21,15 @@ import java.util.List;
 
 // Every route about the tasks of a roomshare
 // The full URL is /api/tasks
+// Each route starts with Roomie.findAcceptedMember: it checks who is calling (401 / 403)
+// and gives back the roomie with his roomshare and its roomies loaded
 @Path("/tasks")
 public class TaskAPI {
 
     @Inject
     private PersonDAO personDAO;
+    @Inject
+    private RoomShareDAO roomShareDAO;
     @Inject
     private TaskDAO taskDAO;
 
@@ -33,34 +38,33 @@ public class TaskAPI {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response createTask(TaskCreateRequest req) {
+    public Response createTask(TaskRequest req) {
 
         // No body at all: 400
         if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
 
         try {
-            // The model does all the work (checks, roomies, save)
+            // 1. Who is calling? He must be an accepted roomie
+            Roomie roomie = Roomie.findAcceptedMember(req.getRoomieEmail(), personDAO, roomShareDAO);
+
+            // 2. The model checks the values, assigns the roomies and saves
             Task task = Task.create(
-                    req.getRoomieEmail(),
+                    roomie,
                     req.getName(),
                     req.getDescription(),
                     req.getDueDate(),
                     req.getStatus(),
                     req.getRoomieIds(),
-                    personDAO,
                     taskDAO);
 
-            // We answer with a DTO, never with the real model
-            TaskResponse resp = new TaskResponse(task);
-
-            // 201 CREATED: a new task exists in the db
+            // 201 CREATED: a new task exists in the db. We answer with a DTO, never with the real model
             return Response.status(Response.Status.CREATED)
-                    .entity(Collections.singletonMap("task", resp))
+                    .entity(Collections.singletonMap("task", new TaskResponse(task)))
                     .build();
 
         } catch (UserNotFoundException e) {
-            // 401: neutral message, so nobody can find out which emails have an account
-            return error(Response.Status.UNAUTHORIZED, "Authentication required.");
+            // 401: unknown email
+            return error(Response.Status.UNAUTHORIZED, e.getMessage());
 
         } catch (ForbiddenRoleException e) {
             // 403: an owner cannot add a task
@@ -89,19 +93,19 @@ public class TaskAPI {
     public Response getTasks(@QueryParam("roomieEmail") String roomieEmail) {
 
         try {
-            // 1. The one calling must be an accepted roomie (checked once)
-            Roomie roomie = Roomie.checkAcceptedRoomie(roomieEmail, personDAO);
+            // 1. Who is calling? He must be an accepted roomie
+            Roomie roomie = Roomie.findAcceptedMember(roomieEmail, personDAO, roomShareDAO);
 
-            // 2. Ask the model: the tasks of his roomshare, and who can be assigned
-            List<Task> tasks = Task.findAllForRoomie(roomie, taskDAO);
-            List<Roomie> roomies = Task.findAssignableRoomies(roomie, personDAO);
+            // 2. The tasks of his roomshare, and the accepted roomies (already loaded with the roomshare)
+            List<Task> tasks = roomie.findTasks(taskDAO);
+            List<Roomie> roomies = roomie.getRoomshare().getAcceptedRoomies();
 
             // 3. We answer with a DTO, never with the real model
             return Response.ok(new TaskListResponse(tasks, roomies)).build();
 
         } catch (UserNotFoundException e) {
-            // 401: neutral message, so nobody can find out which emails have an account
-            return error(Response.Status.UNAUTHORIZED, "Authentication required.");
+            // 401: unknown email
+            return error(Response.Status.UNAUTHORIZED, e.getMessage());
 
         } catch (ForbiddenRoleException e) {
             // 403: an owner cannot see the tasks
@@ -121,7 +125,6 @@ public class TaskAPI {
         }
     }
 
-
     // UPDATE A TASK : PUT /api/tasks/{id}
     // PUT = everything is replaced, the front sends the whole task
     // {id} is read from the URL by @PathParam (/api/tasks/abc gives a 404 automatically)
@@ -129,31 +132,33 @@ public class TaskAPI {
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response updateTask(@PathParam("id") Integer id, TaskUpdateRequest req){
-        if(req == null){
+    public Response updateTask(@PathParam("id") Integer id, TaskRequest req) {
+        if (req == null) {
             return error(Response.Status.BAD_REQUEST, "JSON invalid.");
         }
 
         try {
-            Task task = Task.update(
-                    req.getRoomieEmail(),
-                    id,
+            // 1. Who is calling? He must be an accepted roomie
+            Roomie roomie = Roomie.findAcceptedMember(req.getRoomieEmail(), personDAO, roomShareDAO);
+
+            // 2. The task must be in his roomshare (404 otherwise)
+            Task task = roomie.findTask(id, taskDAO);
+
+            // 3. The model checks the new values and saves
+            task.update(
                     req.getName(),
                     req.getDescription(),
                     req.getDueDate(),
                     req.getStatus(),
                     req.getRoomieIds(),
-                    personDAO,
+                    roomie.getRoomshare(),
                     taskDAO);
 
-            TaskResponse resp = new TaskResponse(task);
+            return Response.ok(Collections.singletonMap("task", new TaskResponse(task))).build();
 
-            return Response.status(Response.Status.OK)
-                    .entity(Collections.singletonMap("task", resp))
-                    .build();
         } catch (UserNotFoundException e) {
-            // 401: neutral message, so nobody can find out which emails have an account
-            return error(Response.Status.UNAUTHORIZED, "Authentication required.");
+            // 401: unknown email
+            return error(Response.Status.UNAUTHORIZED, e.getMessage());
 
         } catch (ForbiddenRoleException e) {
             // 403: an owner cannot update a task
@@ -177,32 +182,32 @@ public class TaskAPI {
         }
     }
 
-    // UPDATE A TASK : PUT /api/tasks/{id}
-    // PUT = everything is replaced, the front sends the whole task
+    // CHECK / UNCHECK A TASK : PUT /api/tasks/{id}/status
+    // Only the status changes, so the front only sends the status (and the email for now)
     // {id} is read from the URL by @PathParam (/api/tasks/abc gives a 404 automatically)
     @PUT
     @Path("/{id}/status")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response changeStatus(@PathParam("id") Integer id, TaskStatusRequest req){
-        if(req == null){
+    public Response changeStatus(@PathParam("id") Integer id, TaskStatusRequest req) {
+        if (req == null) {
             return error(Response.Status.BAD_REQUEST, "JSON invalid.");
         }
 
         try {
-            // The model checks the roomie, the task and the status, then saves
-            Task task = Task.changeStatus(
-                    req.getRoomieEmail(),
-                    id,
-                    req.getStatus(),
-                    personDAO,
-                    taskDAO);
+            // 1. Who is calling? He must be an accepted roomie
+            Roomie roomie = Roomie.findAcceptedMember(req.getRoomieEmail(), personDAO, roomShareDAO);
 
-            // 200 OK with the updated task
+            // 2. The task must be in his roomshare (404 otherwise)
+            Task task = roomie.findTask(id, taskDAO);
+
+            // 3. Only the status changes (400 if missing or unknown)
+            task.changeStatus(req.getStatus(), taskDAO);
+
             return Response.ok(Collections.singletonMap("task", new TaskResponse(task))).build();
 
         } catch (UserNotFoundException e) {
-            // 401: neutral message
+            // 401: unknown email
             return error(Response.Status.UNAUTHORIZED, e.getMessage());
 
         } catch (ForbiddenRoleException e) {
@@ -227,7 +232,6 @@ public class TaskAPI {
         }
     }
 
-
     // DELETE A TASK : DELETE /api/tasks/{id}?roomieEmail=...
     // No body (a DELETE with a body is badly supported), so the email comes in the URL like for the GET
     // Every accepted roomie of the roomshare can delete a task of his roomshare
@@ -235,14 +239,19 @@ public class TaskAPI {
     @DELETE
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response deleteTask(@PathParam("id") Integer id, @QueryParam("roomieEmail") String roomieEmail){
+    public Response deleteTask(@PathParam("id") Integer id, @QueryParam("roomieEmail") String roomieEmail) {
         try {
-            Task.delete(roomieEmail, id, personDAO, taskDAO);
+            // 1. Who is calling? He must be an accepted roomie
+            Roomie roomie = Roomie.findAcceptedMember(roomieEmail, personDAO, roomShareDAO);
+
+            // 2. The task must be in his roomshare (404 otherwise), then it is deleted
+            roomie.findTask(id, taskDAO).delete(taskDAO);
 
             return Response.noContent().build();
+
         } catch (UserNotFoundException e) {
-            // 401: neutral message, so nobody can find out which emails have an account
-            return error(Response.Status.UNAUTHORIZED, "Authentication required.");
+            // 401: unknown email
+            return error(Response.Status.UNAUTHORIZED, e.getMessage());
 
         } catch (ForbiddenRoleException e) {
             // 403: an owner cannot delete a task

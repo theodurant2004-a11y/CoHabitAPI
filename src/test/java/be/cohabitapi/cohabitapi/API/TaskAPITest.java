@@ -1,12 +1,13 @@
 package be.cohabitapi.cohabitapi.API;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
+import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.DAO.TaskDAO;
-import be.cohabitapi.cohabitapi.DTO.TaskCreateRequest;
+import be.cohabitapi.cohabitapi.DTO.TaskRequest;
 import be.cohabitapi.cohabitapi.DTO.TaskListResponse;
 import be.cohabitapi.cohabitapi.DTO.TaskResponse;
 import be.cohabitapi.cohabitapi.DTO.TaskStatusRequest;
-import be.cohabitapi.cohabitapi.DTO.TaskUpdateRequest;
+import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.RoomShare;
 import be.cohabitapi.cohabitapi.Models.Roomie;
@@ -29,9 +30,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 // The API doesn't contain business logic. It :
-    //   1. reads the request, 2. calls the model, 3. turns the result or the exception into an HTTP code
+//   1. reads the request, 2. calls the model, 3. turns the result or the exception into an HTTP code
 // So these tests check that every situation gives the right HTTP code and the right message:
-    // 200 OK, 201 created, 204 no content, 400 bad request, 401 not authenticated, 403 forbidden, 404 not found, 500 server error
+// 200 OK, 201 created, 204 no content, 400 bad request, 401 not authenticated, 403 forbidden, 404 not found, 500 server error
 
 // We call the methods of TaskAPI directly, like normal Java methods
 // No Tomcat, no HTTP request, no db and the DAOs are fakes (mocks)
@@ -49,6 +50,9 @@ class TaskAPITest {
     // Fake DAOs: no db. We tell them what to answer with when(...).thenReturn(...)
     @Mock
     private PersonDAO personDAO;
+
+    @Mock
+    private RoomShareDAO roomShareDAO;
 
     @Mock
     private TaskDAO taskDAO;
@@ -86,9 +90,15 @@ class TaskAPITest {
 
     // small methods that avoid repeating the same lines in every test
 
+    // The roomie who calls is accepted: findAcceptedMember finds him, then loads his roomshare with its roomies
+    private void acceptedRoomieCalls() {
+        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+        when(roomShareDAO.findWithRoomies(1)).thenReturn(roomshare);
+    }
+
     // A valid add request. In the real app Jackson builds it from the JSON
-    private TaskCreateRequest createRequest(String email) {
-        TaskCreateRequest req = new TaskCreateRequest();
+    private TaskRequest createRequest(String email) {
+        TaskRequest req = new TaskRequest();
         req.setName("Take out the trash");
         req.setRoomieEmail(email);
         return req;
@@ -115,7 +125,7 @@ class TaskAPITest {
     @Test
     @DisplayName("add: valid request -> 201 and the task is saved")
     void create_valid_returns201() {
-        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+        acceptedRoomieCalls();
 
         try (Response response = api.createTask(createRequest(EMAIL))) {
             assertEquals(201, response.getStatus());
@@ -132,14 +142,14 @@ class TaskAPITest {
         try (Response response = api.createTask(null)) {
             assertEquals(400, response.getStatus());
         }
-        verifyNoInteractions(personDAO, taskDAO);
+        verifyNoInteractions(personDAO, roomShareDAO, taskDAO);
     }
 
     @Test
     @DisplayName("add: missing name -> 400, nothing saved")
     void create_missingName_returns400() {
-        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
-        TaskCreateRequest req = createRequest(EMAIL);
+        acceptedRoomieCalls();
+        TaskRequest req = createRequest(EMAIL);
         req.setName(null);
 
         try (Response response = api.createTask(req)) {
@@ -150,13 +160,13 @@ class TaskAPITest {
     }
 
     @Test
-    @DisplayName("add: unknown email -> 401 with a neutral message")
+    @DisplayName("add: unknown email -> 401 with the message of the exception")
     void create_unknownUser_returns401() {
         when(personDAO.findByEmail(EMAIL)).thenReturn(null);
 
         try (Response response = api.createTask(createRequest(EMAIL))) {
             assertEquals(401, response.getStatus());
-            assertEquals("Authentication required.", messageOf(response));
+            assertEquals(new UserNotFoundException().getMessage(), messageOf(response));
         }
         verify(taskDAO, never()).create(any());
     }
@@ -168,6 +178,19 @@ class TaskAPITest {
 
         try (Response response = api.createTask(createRequest(OWNER_EMAIL))) {
             assertEquals(403, response.getStatus());
+        }
+        verify(taskDAO, never()).create(any());
+    }
+
+    @Test
+    @DisplayName("add: roomie id not in the roomshare -> 400, nothing saved")
+    void create_roomieOfOtherRoomshare_returns400() {
+        acceptedRoomieCalls();
+        TaskRequest req = createRequest(EMAIL);
+        req.setRoomieIds(List.of(999)); // nobody with this id in the roomshare
+
+        try (Response response = api.createTask(req)) {
+            assertEquals(400, response.getStatus());
         }
         verify(taskDAO, never()).create(any());
     }
@@ -202,9 +225,8 @@ class TaskAPITest {
     @Test
     @DisplayName("list: accepted roomie -> 200 with the tasks and the roomies")
     void getTasks_valid_returns200() {
-        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+        acceptedRoomieCalls();
         when(taskDAO.findByRoomshare(roomshare)).thenReturn(List.of(taskOf(roomshare)));
-        when(personDAO.findAcceptedRoomies(roomshare)).thenReturn(List.of(roomie));
 
         try (Response response = api.getTasks(EMAIL)) {
             assertEquals(200, response.getStatus());
@@ -222,7 +244,7 @@ class TaskAPITest {
         try (Response response = api.getTasks(null)) {
             assertEquals(400, response.getStatus());
         }
-        verifyNoInteractions(personDAO, taskDAO);
+        verifyNoInteractions(personDAO, roomShareDAO, taskDAO);
     }
 
 
@@ -232,10 +254,10 @@ class TaskAPITest {
     @DisplayName("update: valid request -> 200 and the task is saved with the new values")
     void update_valid_returns200() {
         Task task = taskOf(roomshare);
-        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+        acceptedRoomieCalls();
         when(taskDAO.findById(TASK_ID)).thenReturn(task);
 
-        TaskUpdateRequest req = new TaskUpdateRequest();
+        TaskRequest req = new TaskRequest();
         req.setName("New name");
         req.setStatus("completed");
         req.setRoomieEmail(EMAIL);
@@ -252,10 +274,10 @@ class TaskAPITest {
     @Test
     @DisplayName("update: task not found -> 404, nothing saved")
     void update_taskNotFound_returns404() {
-        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+        acceptedRoomieCalls();
         when(taskDAO.findById(TASK_ID)).thenReturn(null);
 
-        TaskUpdateRequest req = new TaskUpdateRequest();
+        TaskRequest req = new TaskRequest();
         req.setName("New name");
         req.setStatus("pending");
         req.setRoomieEmail(EMAIL);
@@ -269,10 +291,10 @@ class TaskAPITest {
     @Test
     @DisplayName("update: task of another roomshare -> 404 (not 403)")
     void update_taskOfOtherRoomshare_returns404() {
-        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+        acceptedRoomieCalls();
         when(taskDAO.findById(TASK_ID)).thenReturn(taskOf(otherRoomshare));
 
-        TaskUpdateRequest req = new TaskUpdateRequest();
+        TaskRequest req = new TaskRequest();
         req.setName("New name");
         req.setStatus("pending");
         req.setRoomieEmail(EMAIL);
@@ -290,7 +312,7 @@ class TaskAPITest {
     @DisplayName("status: completed -> 200 and the task is checked")
     void changeStatus_completed_returns200() {
         Task task = taskOf(roomshare);
-        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+        acceptedRoomieCalls();
         when(taskDAO.findById(TASK_ID)).thenReturn(task);
 
         TaskStatusRequest req = new TaskStatusRequest();
@@ -308,7 +330,7 @@ class TaskAPITest {
     @Test
     @DisplayName("status: unknown status -> 400, nothing saved")
     void changeStatus_unknownStatus_returns400() {
-        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+        acceptedRoomieCalls();
         when(taskDAO.findById(TASK_ID)).thenReturn(taskOf(roomshare));
 
         TaskStatusRequest req = new TaskStatusRequest();
@@ -329,7 +351,7 @@ class TaskAPITest {
     @DisplayName("delete: valid request -> 204 and the task is deleted")
     void delete_valid_returns204() {
         Task task = taskOf(roomshare);
-        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+        acceptedRoomieCalls();
         when(taskDAO.findById(TASK_ID)).thenReturn(task);
 
         try (Response response = api.deleteTask(TASK_ID, EMAIL)) {
@@ -343,7 +365,7 @@ class TaskAPITest {
     @Test
     @DisplayName("delete: task not found -> 404, nothing deleted")
     void delete_taskNotFound_returns404() {
-        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+        acceptedRoomieCalls();
         when(taskDAO.findById(TASK_ID)).thenReturn(null);
 
         try (Response response = api.deleteTask(TASK_ID, EMAIL)) {

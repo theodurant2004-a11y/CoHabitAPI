@@ -3,6 +3,7 @@ package be.cohabitapi.cohabitapi.Models;
 import be.cohabitapi.cohabitapi.DAO.ExpenseDAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
+import be.cohabitapi.cohabitapi.DAO.TaskDAO;
 
 import be.cohabitapi.cohabitapi.EXCEPTION.*;
 import jakarta.persistence.*;
@@ -165,33 +166,26 @@ public class Roomie extends Person {
                 && this.roomshare.getId().equals(roomshare.getId());
     }
 
-    // Finds a roomie by his email and checks that he is an accepted member of a roomshare
-    // Same idea as Owner.checkRightOwner, used by every task use case (add, list, update, delete)
-    public static Roomie checkAcceptedRoomie(String email, PersonDAO personDAO) {
-        // Same cleaning as the login (400 if empty)
-        String cleanEmail = Person.normalizeEmail(email);
-        Person person = Person.findByEmail(cleanEmail, personDAO);
+    // TASKS LIST : the tasks of my roomshare
+    public List<Task> findTasks(TaskDAO taskDAO) {
+        return taskDAO.findByRoomshare(roomshare);
+    }
 
-        // Nobody has this email (the API answers 401)
-        if (person == null)
-            throw new UserNotFoundException();
+    // UPDATE / CHECK / DELETE : finds a task of my roomshare
+    // Does not exist, or is in another roomshare: same exception (404), so nobody learns that it exists elsewhere
+    public Task findTask(Integer taskId, TaskDAO taskDAO) {
+        Task task = taskDAO.findById(taskId);
 
-        // An owner cannot manage tasks (403)
-        if (!(person instanceof Roomie))
-            throw new ForbiddenRoleException();
+        if (task == null || !isAcceptedMemberOf(task.getRoomshare()))
+            throw new TaskNotFoundException();
 
-        Roomie roomie = (Roomie) person;
-
-        // No roomshare yet, or the join request is still pending (403)
-        if (!roomie.isAcceptedMemberOf(roomie.getRoomshare()))
-            throw new NotInRoomshareException();
-
-        return roomie;
+        return task;
     }
 
     //  EXPENSES
 
     // Finds the accepted roomie behind this email, with his roomshare loaded
+    // Used for expenses and tasks
     public static Roomie findAcceptedMember(String email, PersonDAO personDAO, RoomShareDAO roomShareDAO) {
         String cleanEmail = normalizeEmail(email);
         Person person = Person.findByEmail(cleanEmail, personDAO);
