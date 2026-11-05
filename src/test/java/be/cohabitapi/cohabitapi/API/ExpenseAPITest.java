@@ -109,27 +109,27 @@ class ExpenseAPITest {
         assertInstanceOf(ExpensesResponse.class, response.getEntity());
 
         ExpensesResponse body = (ExpensesResponse) response.getEntity();
-        assertEquals(1, body.currentMemberId());
-        assertEquals(3, body.members().size());
-        assertEquals(15.0, body.summary().toReceive(), 0.001);
-        assertEquals(0.0, body.summary().toPay(), 0.001);
-        assertEquals(1, body.expenses().size());
-        assertEquals("Nora Lfarh", body.expenses().get(0).debtor());
-        assertEquals("Test Roomie", body.expenses().get(0).creditor());
-        assertEquals("pending", body.expenses().get(0).status());
-        assertEquals("2026-10-29", body.expenses().get(0).date());
-        assertEquals(1, body.refunds().size());
-        assertFalse(body.categories().isEmpty());
-        // the sign, the bar and the colors are prepared by the model
-        assertEquals("positive", body.balances().get(0).sign());
-        assertEquals("negative", body.balances().get(1).sign());
-        assertEquals(100, body.balances().get(0).percent());
-        assertTrue(body.summary().hasToReceive());
-        assertFalse(body.summary().hasToPay());
+        assertEquals(1, body.getCurrentMemberId());
+        assertEquals(3, body.getMembers().size());
+        assertEquals(15.0, body.getSummary().getToReceive(), 0.001);
+        assertEquals(0.0, body.getSummary().getToPay(), 0.001);
+        assertEquals(1, body.getExpenses().size());
+        assertEquals(2, body.getExpenses().get(0).getDebtorId());
+        assertEquals("Nora Lfarh", body.getExpenses().get(0).getDebtor());
+        assertEquals(1, body.getExpenses().get(0).getCreditorId());
+        assertEquals("Test Roomie", body.getExpenses().get(0).getCreditor());
+        assertFalse(body.getExpenses().get(0).isSettled());
+        assertEquals("2026-10-29", body.getExpenses().get(0).getDate());
+        assertEquals(1, body.getRefunds().size());
+        assertEquals("Nora Lfarh", body.getRefunds().get(0).getFrom());
+        assertEquals("Test Roomie", body.getRefunds().get(0).getTo());
+        // the bar and the colors are prepared by the model
+        assertEquals(100, body.getBalances().get(0).getPercent());
+        assertEquals(15.0, body.getBalances().get(0).getAmount(), 0.001);
+        assertEquals(-15.0, body.getBalances().get(1).getAmount(), 0.001);
 
         // my balance for the home page: the second roomie owes me 15 euros
-        assertEquals(15.0, body.summary().balance(), 0.001);
-        assertEquals("creditor", body.summary().balanceStatus());
+        assertEquals(15.0, body.getSummary().getBalance(), 0.001);
     }
 
     @Test
@@ -138,10 +138,10 @@ class ExpenseAPITest {
 
         assertEquals(200, response.getStatus());
         ExpensesResponse body = (ExpensesResponse) response.getEntity();
-        assertTrue(body.expenses().isEmpty());
-        assertTrue(body.refunds().isEmpty());
-        assertEquals(0.0, body.summary().toPay(), 0.001);
-        assertEquals(0.0, body.summary().toReceive(), 0.001);
+        assertTrue(body.getExpenses().isEmpty());
+        assertTrue(body.getRefunds().isEmpty());
+        assertEquals(0.0, body.getSummary().getToPay(), 0.001);
+        assertEquals(0.0, body.getSummary().getToReceive(), 0.001);
     }
 
     @Test

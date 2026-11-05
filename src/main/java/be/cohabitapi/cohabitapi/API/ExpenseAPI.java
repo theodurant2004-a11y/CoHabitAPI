@@ -3,13 +3,17 @@ package be.cohabitapi.cohabitapi.API;
 import be.cohabitapi.cohabitapi.DAO.ExpenseDAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
+import be.cohabitapi.cohabitapi.DTO.BalanceResponse;
 import be.cohabitapi.cohabitapi.DTO.CreateExpenseRequest;
+import be.cohabitapi.cohabitapi.DTO.ExpenseLineResponse;
 import be.cohabitapi.cohabitapi.DTO.ExpensesResponse;
+import be.cohabitapi.cohabitapi.DTO.MemberResponse;
+import be.cohabitapi.cohabitapi.DTO.RefundResponse;
+import be.cohabitapi.cohabitapi.DTO.SummaryResponse;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Expense;
-import be.cohabitapi.cohabitapi.Models.ExpenseCategory;
 import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.Refund;
 import be.cohabitapi.cohabitapi.Models.Roomie;
@@ -117,50 +121,44 @@ public class ExpenseAPI {
     // Model => DTO
     // This method only copies what the model calculated into the DTOs
     private ExpensesResponse toResponse(Roomie me, List<Expense> mine, List<Refund> refunds) {
-        List<ExpensesResponse.MemberResponse> members = new ArrayList<>();
-        List<ExpensesResponse.BalanceResponse> balanceList = new ArrayList<>();
+        List<MemberResponse> members = new ArrayList<>();
+        List<BalanceResponse> balanceList = new ArrayList<>();
 
         for (Roomie roomie : me.getRoomshare().getAcceptedRoomies()) {
             String color = roomie.chooseColor();
 
-            members.add(new ExpensesResponse.MemberResponse(roomie.getIdPerson(), fullName(roomie), color));
-            balanceList.add(new ExpensesResponse.BalanceResponse(
-                    fullName(roomie), color, roomie.calculateBalance(),
-                    roomie.calculatePercent(), roomie.getBalanceSign()));
+            members.add(new MemberResponse(roomie.getIdPerson(), fullName(roomie), color));
+            balanceList.add(new BalanceResponse(
+                    fullName(roomie), color, roomie.calculateBalance(), roomie.calculatePercent()));
         }
 
-        List<ExpensesResponse.CategoryResponse> categories = new ArrayList<>();
-        for (ExpenseCategory category : ExpenseCategory.values()) {
-            categories.add(new ExpensesResponse.CategoryResponse(
-                    category.getCode(), category.getLabel(), category.getIcon()));
-        }
-
-        List<ExpensesResponse.ExpenseResponse> expenses = new ArrayList<>();
+        List<ExpenseLineResponse> expenses = new ArrayList<>();
         for (Expense expense : mine) {
-            expenses.add(new ExpensesResponse.ExpenseResponse(
+            Person creditor = expense.getCreditor();
+
+            expenses.add(new ExpenseLineResponse(
                     expense.getId(),
                     expense.getName(),
                     expense.getSum(),
-                    expense.getCreationDate().toString(),    // "2026-10-20"
+                    expense.getCreationDate().toString(),
+                    expense.getDebtor().getIdPerson(),
                     fullName(expense.getDebtor()),
-                    expense.getCreditor() == null ? "" : fullName(expense.getCreditor()),
+                    creditor == null ? null : creditor.getIdPerson(),
+                    creditor == null ? "" : fullName(creditor),
                     expense.getCategory().getIcon(),
-                    expense.isSettled() ? "settled" : "pending"));
+                    expense.isSettled()));
         }
 
-        List<ExpensesResponse.RefundResponse> refundList = new ArrayList<>();
+        List<RefundResponse> refundList = new ArrayList<>();
         for (Refund refund : refunds) {
-            refundList.add(new ExpensesResponse.RefundResponse(
+            refundList.add(new RefundResponse(
                     fullName(refund.getFrom()), fullName(refund.getTo()), refund.getAmount()));
         }
 
-        ExpensesResponse.SummaryResponse summary = new ExpensesResponse.SummaryResponse(
-                me.calculateToPay(), me.calculateToReceive(),
-                me.hasToPay(), me.hasToReceive(),
-                me.calculateBalance(), me.getBalanceStatus());
+        SummaryResponse summary = new SummaryResponse(
+                me.calculateToPay(), me.calculateToReceive(), me.calculateBalance());
 
-        return new ExpensesResponse(me.getIdPerson(), members, categories, summary,
-                expenses, balanceList, refundList);
+        return new ExpensesResponse(me.getIdPerson(), members, summary, expenses, balanceList, refundList);
     }
 
     // First name  last name of a person
