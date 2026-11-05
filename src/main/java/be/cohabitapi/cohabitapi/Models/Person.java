@@ -6,6 +6,8 @@ import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import jakarta.persistence.*;
 import org.mindrot.jbcrypt.BCrypt;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
 
 import java.nio.charset.StandardCharsets;
 
@@ -32,6 +34,10 @@ public abstract class Person {
 
     @Column(name = "user_password_hash", nullable = false, length = 255)
     private String passwordHash;
+
+    // The expenses he has to receive
+    @OneToMany(mappedBy = "creditor")
+    private List<Expense> expensesToReceive = new ArrayList<>();
 
 
     //==============================GETTER/SETTER==============================
@@ -80,6 +86,12 @@ public abstract class Person {
         return passwordHash;
     }
 
+    public List<Expense> getExpensesToReceive() {
+        return expensesToReceive;
+    }
+
+
+
     public void setPassword(String plainPassword) {
         plainPassword = normalizePassword(plainPassword);
         if (plainPassword.length() < 8
@@ -92,7 +104,7 @@ public abstract class Person {
         if (plainPassword.getBytes(StandardCharsets.UTF_8).length > 72) {
             throw new IllegalArgumentException("Password too long.");
         }
-        this.passwordHash = hashpassword(plainPassword);
+        this.passwordHash = hashPassword(plainPassword);
     }
     //==============================CONSTRUCTOR==============================
     // Required by JPA/Hibernate to load a Person from the database.
@@ -120,18 +132,36 @@ public abstract class Person {
         dao.create(this);
     }
 
-    public static String hashpassword(String password){
+    // What the others have to give me
+    public double calculateToReceive() {
+        return sumInCents(expensesToReceive) / 100.0;
+    }
 
-        //Define a cost factor => Default is 10
-        //The higher the value, the longer the hashing time and the more secure the hash
-        //https://medium.com/@singhalabhay19/understanding-bcrypt-in-java-a-deep-dive-into-password-hashing-1b4362ccae94
+    // Abstract because a roomie and an owner don't calculate their balance the same way
+    public abstract double calculateBalance();
+
+    // Used when a new expense is created
+    public void addExpenseToReceive(Expense expense) {
+        if (expense == null)
+            throw new IllegalArgumentException("The expense cannot be null");
+        expensesToReceive.add(expense);
+    }
+
+    // Add the sums of the debts that are not settled in cents (no rounding problem)
+    protected long sumInCents(List<Expense> expenses) {
+        long cents = 0;
+
+        for (Expense expense : expenses) {
+            if (!expense.isSettled())
+                cents += expense.getSumInCents();
+        }
+        return cents;
+    }
+
+    private static String hashPassword(String password){
+
         int log = 12;
-
-        // Generate the salt
-        //A salt is a random string of characters added to a password before it is encrypted or hashed.
         String salt = BCrypt.gensalt(log);
-
-        //hash the password
         return BCrypt.hashpw(password, salt);
 
     }
@@ -166,23 +196,20 @@ public abstract class Person {
         String cleanEmail;
         String cleanPassword;
 
-        // 1. Clean the inputs (empty → same error as a wrong login)
+        // Empty inputs give the same error as a wrong login
         try {
             cleanEmail = normalizeEmail(email);
             cleanPassword = normalizePassword(password);
         } catch (IllegalArgumentException e) {
-            //I’m creating my own exception to return the same error message directly
             throw new InvalidCredentialsException();
         }
 
-        // 2. Find the person and check the password
         Person person = findByEmail(cleanEmail, dao);
 
         if (person == null || !BCrypt.checkpw(cleanPassword, person.getPasswordHash())) {
             throw new InvalidCredentialsException();
         }
 
-        // 3. Everything is OK
         return person;
     }
 
@@ -192,18 +219,14 @@ public abstract class Person {
         String cleanPassword;
         String cleanConfirmPassword;
 
-        // 1. Clean the inputs (same helpers as the login).
-        // An empty value throws an IllegalArgumentException with a clear message.
         cleanEmail = normalizeEmail(email);
         cleanPassword = normalizePassword(password);
         cleanConfirmPassword = confirmPassword == null ? "" : confirmPassword.trim();
 
-        // 2. The password and its confirmation must be the same
         if (!cleanPassword.equals(cleanConfirmPassword)) {
             throw new IllegalArgumentException("Passwords do not match.");
         }
 
-        // 3. Build the right subclass depending on the role.
         String cleanRole = role == null ? "" : role.trim().toLowerCase(Locale.ROOT);
         Person person;
 
@@ -215,14 +238,16 @@ public abstract class Person {
             throw new IllegalArgumentException("Invalid role.");
         }
 
-        // 4. The email must not be used yet
         if (existsByEmail(cleanEmail, dao)) {
             throw new EmailAlreadyUsedException();
         }
 
-        // 5. Everything is OK: save the person (the database gives the id)
         person.create(dao);
         return person;
+    }
+
+    public String getFullName() {
+        return getFirstName() + " " + getLastName();
     }
 
 
@@ -230,19 +255,15 @@ public abstract class Person {
 
     @Override
     public boolean equals(Object o) {
-        // Check if it's the same instance
         if (this == o) return true;
-        // Check if it's null or not an instance of the same class
         if (o == null || getClass() != o.getClass()) return false;
 
-        // Cast the object in the case of it's an instance of a Daughter class
         Person person = (Person) o;
 
-        // Check if it's the same person, characterized by the email
+        // A person is identified by the email
         return java.util.Objects.equals(this.email, person.email);
     }
 
-    // When you override the equals method, you have to override the hashCode method too
     @Override
     public int hashCode() {
         return java.util.Objects.hash(email);

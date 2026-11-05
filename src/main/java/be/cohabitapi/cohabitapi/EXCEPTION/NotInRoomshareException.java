@@ -1,7 +1,8 @@
 package be.cohabitapi.cohabitapi.EXCEPTION;
 
-// Thrown when a roomie wants to manage tasks but has no roomshare or his join request is still pending
-// The API turns it into a 403 error
+// Thrown when a roomie has no roomshare or when the owner did not accept him yet
+// Only an accepted member can manage the tasks and the expenses
+// The API turns it into a 403
 public class NotInRoomshareException extends RuntimeException {
 
     public NotInRoomshareException() {

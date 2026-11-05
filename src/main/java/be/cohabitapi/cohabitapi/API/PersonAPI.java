@@ -7,6 +7,7 @@ import be.cohabitapi.cohabitapi.DTO.UserResponse;
 import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidCredentialsException;
 import be.cohabitapi.cohabitapi.Models.Person;
+import be.cohabitapi.cohabitapi.Models.Roomie;
 import static be.cohabitapi.cohabitapi.API.APIResponse.error;
 
 import jakarta.inject.Inject;
@@ -88,8 +89,19 @@ public class PersonAPI {
             // Take the role of user
             String role = personLogin.getClass().getSimpleName();
 
+
             // api response
             UserResponse userResponse = new UserResponse(personLogin.getIdPerson(), personLogin.getFirstName(), personLogin.getLastName(), personLogin.getEmail(), role.toLowerCase(Locale.ROOT));
+
+            // A roomie gets his membership status and the name of his roomshare
+            // An owner has none of this: the fields stay null
+            if (personLogin instanceof Roomie roomie) {
+                userResponse.setMembershipStatus(roomie.getStatusMember().name().toLowerCase(Locale.ROOT)); // PENDING becomes "pending"
+                if (roomie.getRoomshare() != null) {
+                    userResponse.setRoomshareName(roomie.getRoomshare().getName());
+                }
+            }
+
             return Response.ok(
                             Collections.singletonMap("user", userResponse))
                     .build();
