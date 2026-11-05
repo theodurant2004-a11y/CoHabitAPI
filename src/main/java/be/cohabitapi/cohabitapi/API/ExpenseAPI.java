@@ -51,11 +51,11 @@ public class ExpenseAPI {
 
         } catch (UserNotFoundException e) {
             // error 401
-            return error(Response.Status.UNAUTHORIZED, "Authentication required.");
+            return error(Response.Status.UNAUTHORIZED, e.getMessage());
 
         } catch (ForbiddenRoleException e) {
             // error 403
-            return error(Response.Status.FORBIDDEN, "Only a roomie can use the expenses.");
+            return error(Response.Status.FORBIDDEN,e.getMessage());
 
         } catch (NotInRoomshareException e) {
             // error 403
@@ -108,11 +108,11 @@ public class ExpenseAPI {
 
         } catch (UserNotFoundException e) {
             // error 401
-            return error(Response.Status.UNAUTHORIZED, "Authentication required.");
+            return error(Response.Status.UNAUTHORIZED, e.getMessage());
 
         } catch (ForbiddenRoleException e) {
             // error 403: an owner has no expenses
-            return error(Response.Status.FORBIDDEN, "Only a roomie can use the expenses.");
+            return error(Response.Status.FORBIDDEN, e.getMessage());
 
         } catch (NotInRoomshareException e) {
             // error 403: no roomshare yet or request  pending
