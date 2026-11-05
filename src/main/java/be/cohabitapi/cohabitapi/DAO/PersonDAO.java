@@ -3,6 +3,8 @@ package be.cohabitapi.cohabitapi.DAO;
 import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Owner;
+import be.cohabitapi.cohabitapi.Models.MembershipStatus;
+import be.cohabitapi.cohabitapi.Models.RoomShare;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
@@ -11,7 +13,6 @@ import be.cohabitapi.cohabitapi.Models.Person;
 import jakarta.persistence.NoResultException;
 
 import java.util.List;
-import java.util.Locale;
 
 @ApplicationScoped
 public class PersonDAO extends DAO<Person>{
@@ -61,13 +62,16 @@ public class PersonDAO extends DAO<Person>{
 
     //LOGIN: Find existing email and take information
     public Person findByEmail(String email){
+        // An email that is null can't be in the db
+        if (email == null)
+            return null;
+
         EntityManager em = JpaUtil.createEntityManager();
 
         try {
             List<Person> results = em.createQuery(
                             "SELECT p FROM Person p WHERE p.email = :email", Person.class)
                     .setParameter("email", email)
-                    // i use getResultList beceause it's  easier if a mistake is made
                     .getResultList();
 
             return results.isEmpty() ? null : results.get(0);
@@ -96,17 +100,13 @@ public class PersonDAO extends DAO<Person>{
         try {
             EntityTransaction transaction = em.getTransaction();
             try {
-                // A transaction groups the changes: everything is saved, or nothing
                 transaction.begin();
 
-                // merge, because the person was loaded by another EntityManager (which is closed now).
-                // An object in that state is "detached": persist would not work, merge copies it into this EntityManager.
+                // merge because the person was loaded by another EntityManager (detached)
                 em.merge(person);
 
-                // The real UPDATE is sent to the database here
                 transaction.commit();
             } catch (RuntimeException e) {
-                // If something failed, cancel the changes
                 if(transaction.isActive()){
                     transaction.rollback();
                 }

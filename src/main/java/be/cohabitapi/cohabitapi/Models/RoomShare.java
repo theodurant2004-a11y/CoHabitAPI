@@ -45,8 +45,9 @@ public class RoomShare {
     // Return the entire object, not only the id
     private Owner owner;
 
-    @OneToMany(mappedBy = "roomShare") // Make the bi-directionnal link with the roomie
-    private final List<Roomie> roomies = new ArrayList<>();
+    @OneToMany(mappedBy = "roomshare")
+    @OrderBy("idPerson") // Stable order: the split and the colors depend on it
+    private List<Roomie> roomies = new ArrayList<>();
 
 
     // ------------------------- Getters and Setters --------------------------------------------------
@@ -98,9 +99,9 @@ public class RoomShare {
 
     // ------------------------- Constructors --------------------------------------------------
 
-    // Not in public so as not to allow outsiders to use this empty constructor
-    // Not in private because Hibernate needs to use this empty constructor
-    protected RoomShare() {}
+    // Only for Hibernate
+    protected RoomShare() {
+    }
 
     // Constructor used for the RoomShare creation form
     public RoomShare(String key, String name, Owner owner) {
@@ -151,10 +152,34 @@ public class RoomShare {
             throw new IllegalArgumentException("The roomie cannot be null");
         if (roomies.contains(roomie))
             throw new IllegalArgumentException("The roomie already exists");
-        if (roomie.getRoomShare() != null)
+        if (roomie.getRoomshare() != null)
             throw new IllegalArgumentException("The roomie already belongs to a room share");
         roomies.add(roomie);
-        roomie.setRoomShare(this);
+        roomie.setRoomshare(this);
+    }
+
+    // The pending roomies are in the list too, so we keep only the accepted ones
+    public List<Roomie> getAcceptedRoomies() {
+        List<Roomie> accepted = new ArrayList<>();
+
+        for (Roomie roomie : roomies) {
+            if (roomie.getStatusMember() == MembershipStatus.ACCEPTED)
+                accepted.add(roomie);
+        }
+
+        return accepted;
+    }
+
+    // Looks for an accepted roomie of this roomshare with his id
+    public Roomie findRoomie(Integer id) {
+        if (id == null)
+            throw new IllegalArgumentException("A roomie is required.");
+
+        for (Roomie roomie : getAcceptedRoomies()) {
+            if (id.equals(roomie.getIdPerson()))
+                return roomie;
+        }
+        throw new IllegalArgumentException("A roomie of the list does not belong to your roomshare.");
     }
 
 

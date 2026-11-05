@@ -36,4 +36,10 @@ public class Owner extends Person{
 
         return (Owner)owner;
     }
+
+    // An owner never owes money, so his balance is only what he has to receive
+    @Override
+    public double calculateBalance() {
+        return calculateToReceive();
+    }
 }
