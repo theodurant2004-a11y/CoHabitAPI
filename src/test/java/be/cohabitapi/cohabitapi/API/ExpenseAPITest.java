@@ -238,6 +238,15 @@ class ExpenseAPITest {
     }
 
     @Test
+    void createExpense_noSplit_returns400() {
+        CreateExpenseRequest req = validRequest();
+        req.setSharedWithIds(null);
+
+        assertEquals(400, api.createExpense(req).getStatus());
+        verify(expenseDAO, never()).createAll(anyList());
+    }
+
+    @Test
     void createExpense_unknownEmail_returns401() {
         CreateExpenseRequest req = validRequest();
         req.setRoomieEmail("nobody@mail.com");

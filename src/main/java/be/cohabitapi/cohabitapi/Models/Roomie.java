@@ -14,10 +14,11 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 
 @Entity
 @Table(name = "Roomie")
@@ -182,29 +183,17 @@ public class Roomie extends Person {
         return loaded.findRoomie(getIdPerson());
     }
 
-    // This roomie paid something: one debt is created for each roomie of the split
+    // Adds an expense to my roomshare: one debt is created for each roomie of the split, except the payer
     public List<Expense> addExpense(String description, Double amount, String date, String category,
-                                    List<Roomie> sharers, ExpenseDAO expenseDAO) {
+                                    Integer paidById, List<Integer> sharedWithIds, ExpenseDAO expenseDAO) {
         checkIsAccepted();
 
         long totalCents = toCents(amount);
         LocalDate cleanDate = parseDate(date);
 
-        // anyMatch because contains(null) crashes with List.of
-        if (sharers == null || sharers.isEmpty() || sharers.stream().anyMatch(Objects::isNull))
-            throw new IllegalArgumentException("Choose at least one roomie to split with.");
-
-        // Everybody must be in my roomshare
-        List<Roomie> members = roomshare.getAcceptedRoomies();
-        if (!members.containsAll(sharers))
-            throw new IllegalArgumentException("A roomie of the list does not belong to your roomshare.");
-
-        // We keep the order of the roomshare, so the split is always the same
-        List<Roomie> ordered = new ArrayList<>();
-        for (Roomie member : members) {
-            if (sharers.contains(member))
-                ordered.add(member);
-        }
+        // findRoomie refuses an id that is not in my roomshare
+        Roomie payer = roomshare.findRoomie(paidById);
+        List<Roomie> ordered = findSharers(sharedWithIds);
 
         // Split in cents
         long baseCents = totalCents / ordered.size(); // each roomie's basic share
@@ -216,9 +205,9 @@ public class Roomie extends Person {
             long shareCents = baseCents + (i < remainder ? 1 : 0);
             Roomie sharer = ordered.get(i);
 
-            // I don't owe money to myself
-            if (!sharer.equals(this)) {
-                debts.add(new Expense(description, shareCents / 100.0, cleanDate, category, sharer, this));
+            // The payer does not owe money to himself
+            if (!sharer.equals(payer)) {
+                debts.add(new Expense(description, shareCents / 100.0, cleanDate, category, sharer, payer));
             }
         }
 
@@ -228,13 +217,28 @@ public class Roomie extends Person {
         // Everything is saved in one transaction
         expenseDAO.createAll(debts);
 
-        // The new debts go in the lists of the debtors and in mine
+        // The new debts go in the lists of the debtors and of the payer
         for (Expense debt : debts) {
             debt.getDebtor().addExpenseToPay(debt);
-            addExpenseToReceive(debt);
+            payer.addExpenseToReceive(debt);
         }
 
         return debts;
+    }
+
+    // The roomies of the split, without duplicates and in the order of the roomshare (so the split is always the same)
+    private List<Roomie> findSharers(List<Integer> sharedWithIds) {
+        if (sharedWithIds == null || sharedWithIds.isEmpty())
+            throw new IllegalArgumentException("Choose at least one roomie to split with.");
+
+        Set<Roomie> sharers = new HashSet<>();
+        for (Integer id : sharedWithIds) {
+            sharers.add(roomshare.findRoomie(id));
+        }
+
+        List<Roomie> ordered = roomshare.getAcceptedRoomies();
+        ordered.retainAll(sharers);
+        return ordered;
     }
 
     public void addExpenseToPay(Expense expense) {

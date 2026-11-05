@@ -193,7 +193,7 @@ class RoomieExpenseTest {
     void addExpense_sharedByThree_createsTwoDebtsOfTheSameSum() {
         // I paid 45 euros for the 3 of us: the 2 others owe me 15 each
         List<Expense> debts = me.addExpense("Groceries", 45.0, "2026-10-20", "food",
-                List.of(me, second, third), expenseDAO);
+                1, List.of(1, 2, 3), expenseDAO);
 
         assertEquals(2, debts.size());
         assertEquals(15.0, debts.get(0).getSum(), 0.001);
@@ -207,7 +207,7 @@ class RoomieExpenseTest {
 
     @Test
     void addExpense_savesAllTheDebtsInOneCall() {
-        me.addExpense("Groceries", 45.0, "2026-10-20", "food", List.of(me, second, third), expenseDAO);
+        me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(1, 2, 3), expenseDAO);
 
         verify(expenseDAO, times(1)).createAll(savedDebts.capture());
         assertEquals(2, savedDebts.getValue().size());
@@ -215,7 +215,7 @@ class RoomieExpenseTest {
 
     @Test
     void addExpense_putsTheDebtsInTheListsOfTheRoomies() {
-        me.addExpense("Groceries", 45.0, "2026-10-20", "food", List.of(me, second, third), expenseDAO);
+        me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(1, 2, 3), expenseDAO);
 
         // I have 2 expenses to receive and the others have 1 expense to pay each
         assertEquals(2, me.getExpensesToReceive().size());
@@ -228,7 +228,7 @@ class RoomieExpenseTest {
     void addExpense_remainderInCents_isGivenToTheFirstRoomiesAndTheTotalStaysExact() {
         // 10 euros between 3 = 3.34 + 3.33 + 3.33. The third roomie paid, so only the 2 first ones owe money
         List<Expense> debts = third.addExpense("Pizza", 10.0, "2026-10-20", "food",
-                List.of(me, second, third), expenseDAO);
+                3, List.of(1, 2, 3), expenseDAO);
 
         assertEquals(2, debts.size());
         assertEquals(334, debts.get(0).getSumInCents());
@@ -239,7 +239,7 @@ class RoomieExpenseTest {
     void addExpense_duplicateRoomies_areCountedOnce() {
         // "second" is in the list twice, but the split is still between 2 roomies: 10 euros => 5 each
         List<Expense> debts = me.addExpense("Taxi", 10.0, "2026-10-20", "other",
-                List.of(me, second, second), expenseDAO);
+                1, List.of(1, 2, 2), expenseDAO);
 
         assertEquals(1, debts.size());
         assertEquals(5.0, debts.get(0).getSum(), 0.001);
@@ -247,15 +247,17 @@ class RoomieExpenseTest {
 
     @Test
     void addExpense_someoneElsePaid_theDebtGoesToThePayer() {
-        // The second roomie paid for me and the third roomie
-        List<Expense> debts = second.addExpense("Cinema", 20.0, "2026-10-20", "leisure",
-                List.of(me, second, third), expenseDAO);
+        // I add an expense that the second roomie paid for me and the third roomie
+        List<Expense> debts = me.addExpense("Cinema", 20.0, "2026-10-20", "leisure",
+                2, List.of(1, 2, 3), expenseDAO);
 
         assertEquals(2, debts.size());
         assertSame(second, debts.get(0).getCreditor());
         assertSame(me, debts.get(0).getDebtor());
         assertSame(second, debts.get(1).getCreditor());
         assertSame(third, debts.get(1).getDebtor());
+        assertEquals(2, second.getExpensesToReceive().size());
+        assertTrue(me.getExpensesToReceive().isEmpty());
     }
 
 
@@ -264,17 +266,25 @@ class RoomieExpenseTest {
     @Test
     void addExpense_onlyThePayerInTheSplit_throwsExceptionAndSavesNothing() {
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", List.of(me), expenseDAO));
+                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(1), expenseDAO));
 
         verify(expenseDAO, never()).createAll(anyList());
     }
 
     @Test
     void addExpense_sharerNotInTheRoomshare_throwsException() {
-        Roomie stranger = outsider();
-
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", List.of(me, stranger), expenseDAO));
+                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(1, 99), expenseDAO));
+
+        verify(expenseDAO, never()).createAll(anyList());
+    }
+
+    @Test
+    void addExpense_payerNotInTheRoomshareOrMissing_throwsException() {
+        assertThrows(IllegalArgumentException.class,
+                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", 99, List.of(1, 2), expenseDAO));
+        assertThrows(IllegalArgumentException.class,
+                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", null, List.of(1, 2), expenseDAO));
 
         verify(expenseDAO, never()).createAll(anyList());
     }
@@ -282,60 +292,60 @@ class RoomieExpenseTest {
     @Test
     void addExpense_emptyOrNullSplit_throwsException() {
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", List.of(), expenseDAO));
+                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(), expenseDAO));
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", null, expenseDAO));
+                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, null, expenseDAO));
         // Arrays.asList accepts null, List.of does not
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", Arrays.asList(me, null), expenseDAO));
+                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, Arrays.asList(1, null), expenseDAO));
     }
 
     @Test
     void addExpense_invalidAmount_throwsException() {
-        List<Roomie> sharers = List.of(me, second);
+        List<Integer> sharers = List.of(1, 2);
 
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", null, "2026-10-20", "food", sharers, expenseDAO));
+                () -> me.addExpense("Groceries", null, "2026-10-20", "food", 1, sharers, expenseDAO));
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 0.0, "2026-10-20", "food", sharers, expenseDAO));
+                () -> me.addExpense("Groceries", 0.0, "2026-10-20", "food", 1, sharers, expenseDAO));
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", -3.0, "2026-10-20", "food", sharers, expenseDAO));
+                () -> me.addExpense("Groceries", -3.0, "2026-10-20", "food", 1, sharers, expenseDAO));
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 100001.0, "2026-10-20", "food", sharers, expenseDAO));
+                () -> me.addExpense("Groceries", 100001.0, "2026-10-20", "food", 1, sharers, expenseDAO));
     }
 
     @Test
     void addExpense_invalidDescription_throwsExceptionAndSavesNothing() {
-        List<Roomie> sharers = List.of(me, second);
+        List<Integer> sharers = List.of(1, 2);
 
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense(null, 45.0, "2026-10-20", "food", sharers, expenseDAO));
+                () -> me.addExpense(null, 45.0, "2026-10-20", "food", 1, sharers, expenseDAO));
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("  ", 45.0, "2026-10-20", "food", sharers, expenseDAO));
+                () -> me.addExpense("  ", 45.0, "2026-10-20", "food", 1, sharers, expenseDAO));
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("a".repeat(51), 45.0, "2026-10-20", "food", sharers, expenseDAO));
+                () -> me.addExpense("a".repeat(51), 45.0, "2026-10-20", "food", 1, sharers, expenseDAO));
 
         verify(expenseDAO, never()).createAll(anyList());
     }
 
     @Test
     void addExpense_invalidDate_throwsException() {
-        List<Roomie> sharers = List.of(me, second);
+        List<Integer> sharers = List.of(1, 2);
 
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, null, "food", sharers, expenseDAO));
+                () -> me.addExpense("Groceries", 45.0, null, "food", 1, sharers, expenseDAO));
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "20/10/2026", "food", sharers, expenseDAO));
+                () -> me.addExpense("Groceries", 45.0, "20/10/2026", "food", 1, sharers, expenseDAO));
     }
 
     @Test
     void addExpense_invalidCategory_throwsException() {
-        List<Roomie> sharers = List.of(me, second);
+        List<Integer> sharers = List.of(1, 2);
 
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "unknown", sharers, expenseDAO));
+                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "unknown", 1, sharers, expenseDAO));
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", null, sharers, expenseDAO));
+                () -> me.addExpense("Groceries", 45.0, "2026-10-20", null, 1, sharers, expenseDAO));
     }
 
 
@@ -346,7 +356,7 @@ class RoomieExpenseTest {
         Roomie pending = pendingRoomie();
 
         assertThrows(NotInRoomshareException.class,
-                () -> pending.addExpense("Groceries", 45.0, "2026-10-20", "food", List.of(me, second), expenseDAO));
+                () -> pending.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(1, 2), expenseDAO));
 
         verify(expenseDAO, never()).createAll(anyList());
     }
@@ -356,7 +366,7 @@ class RoomieExpenseTest {
         Roomie alone = outsider();
 
         assertThrows(NotInRoomshareException.class,
-                () -> alone.addExpense("Groceries", 45.0, "2026-10-20", "food", List.of(me, second), expenseDAO));
+                () -> alone.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(1, 2), expenseDAO));
     }
 
 

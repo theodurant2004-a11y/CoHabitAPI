@@ -11,7 +11,6 @@ import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Expense;
 import be.cohabitapi.cohabitapi.Models.ExpenseCategory;
 import be.cohabitapi.cohabitapi.Models.Person;
-import be.cohabitapi.cohabitapi.Models.RoomShare;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 import static be.cohabitapi.cohabitapi.API.APIResponse.error;
 
@@ -78,25 +77,14 @@ public class ExpenseAPI {
 
         try {
             Roomie me = Roomie.findAcceptedMember(req.getRoomieEmail(), personDAO, roomShareDAO);
-            RoomShare roomshare = me.getRoomshare();
 
-            // The JSON only has ids: we turn them into roomies of the roomshare
-            Roomie payer = roomshare.findRoomie(req.getPaidById());
-
-            List<Roomie> sharers = new ArrayList<>();
-            if (req.getSharedWithIds() != null) {
-                for (Integer id : req.getSharedWithIds()) {
-                    sharers.add(roomshare.findRoomie(id));
-                }
-            }
-
-            // The roomie who paid adds the expense
-            payer.addExpense(
+            me.addExpense(
                     req.getDescription(),
                     req.getAmount(),
                     req.getDate(),
                     req.getCategory(),
-                    sharers,
+                    req.getPaidById(),
+                    req.getSharedWithIds(),
                     expenseDAO);
 
             // 201 Created: new rows exist now. The front asks the list again
