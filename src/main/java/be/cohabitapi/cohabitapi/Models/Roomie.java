@@ -10,6 +10,7 @@ import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NoPendingRequestException;
 import be.cohabitapi.cohabitapi.EXCEPTION.JoinRequestNotFoundException;
+import be.cohabitapi.cohabitapi.EXCEPTION.MemberNotFoundException;
 import jakarta.persistence.*;
 
 import java.util.Locale;
@@ -247,5 +248,50 @@ public class Roomie extends Person{
         return personDAO.findPendingRoomiesByOwner(owner.getIdPerson());
     }
 
+    //  REMOVE A ROOMIE
+
+    // The owner removes the roomie from the roomshare: the roomie goes back to the start, without roomshare
+    // His account is NOT deleted: he can still sign in and join a roomshare again with a key
+    public void removeFromRoomshare() {
+        // Only a real member (ACCEPTED) can be removed (the API turns it into a 404)
+        // A pending roomie is not a member: the owner refuses his request instead
+        if (this.statusMember != MembershipStatus.ACCEPTED)
+            throw new MemberNotFoundException();
+
+        // Same state as a new roomie: no roomshare and status NONE
+        this.roomshare = null;
+        this.statusMember = MembershipStatus.NONE;
+    }
+
+    // The whole "remove a roomie" use case. The API only calls this method
+    // Same steps as answerJoinRequest: check the inputs, the owner, the roomie, then change and save
+    public static Roomie removeMember(String ownerEmail, Integer roomieId, PersonDAO personDAO) {
+        // 1. Check the input before using the db (the API answers 400)
+        if (roomieId == null)
+            throw new IllegalArgumentException("The roomie id is required.");
+
+        // 2. Find the user who removes and check that he is an owner
+        // checkRightOwner throws UserNotFoundException (401) or UnauthorizedUserException (403)
+        Owner owner = Owner.checkRightOwner(ownerEmail, personDAO);
+
+        // 3. Find the roomie with his id
+        Person person = personDAO.findById(roomieId);
+
+        // Nobody with this id, or it is not a roomie, or he is in the roomshare of another owner (404)
+        // belongsToOwner is the same security rule as for the join requests
+        if (!(person instanceof Roomie) || !((Roomie) person).belongsToOwner(owner))
+            throw new MemberNotFoundException();
+
+        // We know it is a Roomie, so we can use it as a Roomie
+        Roomie roomie = (Roomie) person;
+
+        // 4. Change the state of the roomie in memory (404 if he is not an accepted member)
+        roomie.removeFromRoomshare();
+
+        // 5. Save it in the db, at the end so nothing is saved if a step failed
+        personDAO.update(roomie);
+
+        return roomie;
+    }
 
 }

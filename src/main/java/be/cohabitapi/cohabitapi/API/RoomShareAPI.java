@@ -27,6 +27,7 @@ import be.cohabitapi.cohabitapi.EXCEPTION.JoinRequestNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NoPendingRequestException;
 import java.util.ArrayList;
 import java.util.List;
+import be.cohabitapi.cohabitapi.EXCEPTION.MemberNotFoundException;
 
 @Path("/roomshares")
 public class RoomShareAPI {
@@ -282,4 +283,48 @@ public class RoomShareAPI {
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
         }
     }
+
+    // REMOVE A ROOMIE : the owner removes an accepted roomie from his roomshare (button "Remove" of the Members page)
+    // DELETE because the roomie is taken out of the roomshare (his account is NOT deleted, only his membership)
+    // The full URL is /api/roomshares/members/{roomieId}?ownerEmail=..., for example /api/roomshares/members/2
+    // TO DO : remove the ownerEmail parameter when the session system is efficient
+    @DELETE
+    @Path("/members/{roomieId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response removeMember(@PathParam("roomieId") Integer roomieId, @QueryParam("ownerEmail") String ownerEmail) {
+        // @PathParam takes the {roomieId} part of the URL
+        // A DELETE usually has no body, so the email comes from the URL with @QueryParam (like for the GET)
+
+        try {
+            // The model does all the work (checks, search, change of status, save)
+            Roomie.removeMember(ownerEmail, roomieId, personDAO);
+
+            // 204 NO CONTENT: it worked and there is nothing to send back
+            // (the front loads the list of members again to show the new state)
+            return Response.noContent().build();
+
+            // Each exception of the model becomes an HTTP code
+            // The order matters: RuntimeException (the generic one) must be the last
+        } catch (IllegalArgumentException e) {
+            // 400: the email or the id is missing (the message comes from the model)
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+
+        } catch (UserNotFoundException e) {
+            // 401: neutral message
+            return error(Response.Status.UNAUTHORIZED, "Authentication required.");
+
+        } catch (UnauthorizedUserException e) {
+            // 403: only an owner can remove a roomie
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+
+        } catch (MemberNotFoundException e) {
+            // 404: this roomie is not a member of the roomshare of this owner
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+
+        } catch (RuntimeException e) {
+            // 500: anything unexpected but the client only gets a generic message
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
+        }
+    }
+
 }
