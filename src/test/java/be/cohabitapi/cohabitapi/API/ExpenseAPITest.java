@@ -145,10 +145,10 @@ class ExpenseAPITest {
     }
 
     @Test
-    void getExpenses_emailIsEmpty_returns401() {
-        // The DAO finds nobody with a null or blank email, so it is the same answer as an unknown email
-        assertEquals(401, api.getExpenses(null).getStatus());
-        assertEquals(401, api.getExpenses("   ").getStatus());
+    void getExpenses_emailIsEmpty_returns400() {
+        // normalizeEmail refuses a null or blank email, like Owner.checkRightOwner
+        assertEquals(400, api.getExpenses(null).getStatus());
+        assertEquals(400, api.getExpenses("   ").getStatus());
     }
 
     @Test

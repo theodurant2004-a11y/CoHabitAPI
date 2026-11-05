@@ -159,6 +159,23 @@ public class Roomie extends Person {
 
     //  EXPENSES
 
+    // Finds the accepted roomie behind this email, with his roomshare loaded
+    public static Roomie findAcceptedMember(String email, PersonDAO personDAO, RoomShareDAO roomShareDAO) {
+        String cleanEmail = normalizeEmail(email);
+        Person person = Person.findByEmail(cleanEmail, personDAO);
+
+        if (person == null)
+            throw new UserNotFoundException();
+
+        if (!(person instanceof Roomie))
+            throw new ForbiddenRoleException();
+
+        Roomie roomie = (Roomie) person;
+        roomie.checkIsAccepted();
+
+        return roomie.loadRoomshare(roomShareDAO);
+    }
+
     // Gives back this roomie but with his roomshare loaded: its roomies and all their expenses
     public Roomie loadRoomshare(RoomShareDAO dao) {
         RoomShare loaded = dao.findWithRoomies(roomshare.getId());

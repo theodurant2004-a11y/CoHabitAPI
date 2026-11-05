@@ -40,7 +40,7 @@ public class ExpenseAPI {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getExpenses(@QueryParam("email") String email) {
         try {
-            Roomie me = findMember(email);
+            Roomie me = Roomie.findAcceptedMember(email, personDAO, roomShareDAO);
 
             // We answer with dto and not the model because of the password hash
             return Response.ok(toResponse(me, me.findMyExpenses(), me.suggestRefunds())).build();
@@ -77,7 +77,7 @@ public class ExpenseAPI {
         if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
 
         try {
-            Roomie me = findMember(req.getRoomieEmail());
+            Roomie me = Roomie.findAcceptedMember(req.getRoomieEmail(), personDAO, roomShareDAO);
             RoomShare roomshare = me.getRoomshare();
 
             // The JSON only has ids: we turn them into roomies of the roomshare
@@ -124,23 +124,6 @@ public class ExpenseAPI {
         }
     }
 
-
-    // Finds the roomie who is signed in, checks that if he is accepted, and loads his roomshare
-    private Roomie findMember(String email) {
-        Person person = personDAO.findByEmail(email);
-
-        if (person == null)
-            throw new UserNotFoundException();
-
-        // An owner is a Person but not a Roomie
-        if (!(person instanceof Roomie))
-            throw new ForbiddenRoleException();
-
-        Roomie roomie = (Roomie) person;
-        roomie.checkIsAccepted();
-
-        return roomie.loadRoomshare(roomShareDAO);
-    }
 
     // Model => DTO
     // This method only copies what the model calculated into the DTOs

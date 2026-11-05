@@ -1,8 +1,11 @@
 package be.cohabitapi.cohabitapi.Models;
 
 import be.cohabitapi.cohabitapi.DAO.ExpenseDAO;
+import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
+import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
+import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +36,8 @@ class RoomieExpenseTest {
 
     @Mock
     private ExpenseDAO expenseDAO;
+    @Mock
+    private PersonDAO personDAO;
     @Mock
     private RoomShareDAO roomShareDAO;
     @Captor
@@ -115,6 +120,59 @@ class RoomieExpenseTest {
     @Test
     void checkIsAccepted_roomieWithoutRoomshare_throwsNotInRoomshareException() {
         assertThrows(NotInRoomshareException.class, () -> outsider().checkIsAccepted());
+    }
+
+
+    // ------------------------- findAcceptedMember --------------------------------------------------
+
+    @Test
+    void findAcceptedMember_acceptedRoomie_givesHimBack() {
+        when(personDAO.findByEmail("me@mail.com")).thenReturn(me);
+        when(roomShareDAO.findWithRoomies(any())).thenReturn(roomshare);
+
+        assertSame(me, Roomie.findAcceptedMember("me@mail.com", personDAO, roomShareDAO));
+    }
+
+    @Test
+    void findAcceptedMember_emailIsNormalizedBeforeTheSearch() {
+        when(personDAO.findByEmail("me@mail.com")).thenReturn(me);
+        when(roomShareDAO.findWithRoomies(any())).thenReturn(roomshare);
+
+        assertSame(me, Roomie.findAcceptedMember("  ME@Mail.com ", personDAO, roomShareDAO));
+        verify(personDAO).findByEmail("me@mail.com");
+    }
+
+    @Test
+    void findAcceptedMember_emptyEmail_throwsExceptionWithoutSearching() {
+        assertThrows(IllegalArgumentException.class,
+                () -> Roomie.findAcceptedMember("   ", personDAO, roomShareDAO));
+
+        verify(personDAO, never()).findByEmail(any());
+    }
+
+    @Test
+    void findAcceptedMember_unknownEmail_throwsUserNotFoundException() {
+        when(personDAO.findByEmail("nobody@mail.com")).thenReturn(null);
+
+        assertThrows(UserNotFoundException.class,
+                () -> Roomie.findAcceptedMember("nobody@mail.com", personDAO, roomShareDAO));
+    }
+
+    @Test
+    void findAcceptedMember_anOwner_throwsForbiddenRoleException() {
+        when(personDAO.findByEmail("owner@mail.com")).thenReturn(owner);
+
+        assertThrows(ForbiddenRoleException.class,
+                () -> Roomie.findAcceptedMember("owner@mail.com", personDAO, roomShareDAO));
+    }
+
+    @Test
+    void findAcceptedMember_pendingRoomie_throwsNotInRoomshareException() {
+        Roomie pending = pendingRoomie();
+        when(personDAO.findByEmail("pending@mail.com")).thenReturn(pending);
+
+        assertThrows(NotInRoomshareException.class,
+                () -> Roomie.findAcceptedMember("pending@mail.com", personDAO, roomShareDAO));
     }
 
 
