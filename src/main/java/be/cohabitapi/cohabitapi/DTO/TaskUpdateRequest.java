@@ -19,6 +19,7 @@ public class TaskUpdateRequest {
 
     private List<Integer> roomieIds;
 
+    // TO DO : remove it when the session system is efficient
     private String roomieEmail;
 
     public TaskUpdateRequest() {

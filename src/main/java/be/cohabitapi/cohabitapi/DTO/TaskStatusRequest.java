@@ -9,6 +9,7 @@ public class TaskStatusRequest {
 
     // "completed" to check the task, "pending" to uncheck it
     private String status;
+    // TO DO : remove it when the session system is efficient
     private String roomieEmail;
 
     public TaskStatusRequest() {
