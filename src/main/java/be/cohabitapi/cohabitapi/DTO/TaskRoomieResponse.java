@@ -1,7 +1,5 @@
 package be.cohabitapi.cohabitapi.DTO;
 
-import be.cohabitapi.cohabitapi.Models.Roomie;
-
 // A roomie assigned to a task, as the front sees it
 // We never send the real model because it contains the password hash
 public class TaskRoomieResponse {
@@ -15,23 +13,33 @@ public class TaskRoomieResponse {
     public TaskRoomieResponse() {
     }
 
-    // Builds the answer from the model
-    public TaskRoomieResponse(Roomie roomie) {
-        this.id = roomie.getIdPerson();
-        this.firstName = roomie.getFirstName();
-        this.lastName = roomie.getLastName();
+    public TaskRoomieResponse(Integer id, String firstName, String lastName) {
+        this.id = id;
+        this.firstName = firstName;
+        this.lastName = lastName;
     }
 
-    // Only getters: Jackson only needs them to turn the object into JSON
     public Integer getId() {
         return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
     }
 
     public String getFirstName() {
         return firstName;
     }
 
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
     public String getLastName() {
         return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
     }
 }

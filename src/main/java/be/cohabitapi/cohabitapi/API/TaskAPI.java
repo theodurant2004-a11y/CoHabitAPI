@@ -16,6 +16,8 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -59,7 +61,7 @@ public class TaskAPI {
 
             // 201 CREATED: a new task exists in the db. We answer with a DTO, never with the real model
             return Response.status(Response.Status.CREATED)
-                    .entity(Collections.singletonMap("task", new TaskResponse(task)))
+                    .entity(Collections.singletonMap("task", toTaskResponse(task)))
                     .build();
 
         } catch (UserNotFoundException e) {
@@ -101,7 +103,7 @@ public class TaskAPI {
             List<Roomie> roomies = roomie.getRoomshare().getAcceptedRoomies();
 
             // 3. We answer with a DTO, never with the real model
-            return Response.ok(new TaskListResponse(tasks, roomies)).build();
+            return Response.ok(toTaskListResponse(tasks, roomies)).build();
 
         } catch (UserNotFoundException e) {
             // 401: unknown email
@@ -154,7 +156,7 @@ public class TaskAPI {
                     roomie.getRoomshare(),
                     taskDAO);
 
-            return Response.ok(Collections.singletonMap("task", new TaskResponse(task))).build();
+            return Response.ok(Collections.singletonMap("task", toTaskResponse(task))).build();
 
         } catch (UserNotFoundException e) {
             // 401: unknown email
@@ -204,7 +206,7 @@ public class TaskAPI {
             // 3. Only the status changes (400 if missing or unknown)
             task.changeStatus(req.getStatus(), taskDAO);
 
-            return Response.ok(Collections.singletonMap("task", new TaskResponse(task))).build();
+            return Response.ok(Collections.singletonMap("task", toTaskResponse(task))).build();
 
         } catch (UserNotFoundException e) {
             // 401: unknown email
@@ -273,5 +275,46 @@ public class TaskAPI {
             // 500: anything unexpected, the client only gets a generic message
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
         }
+    }
+
+    // Model => DTO
+    // These methods only copy the models into the DTOs
+
+    // For the list of tasks (GET)
+    private TaskListResponse toTaskListResponse(List<Task> taskList, List<Roomie> roomieList) {
+        List<TaskResponse> tasks = new ArrayList<>();
+        for (Task task : taskList) {
+            tasks.add(toTaskResponse(task));
+        }
+
+        List<TaskRoomieResponse> roomies = new ArrayList<>();
+        for (Roomie roomie : roomieList) {
+            roomies.add(toTaskRoomieResponse(roomie));
+        }
+
+        return new TaskListResponse(tasks, roomies);
+    }
+
+    // For one task (used by the list, the add, the update and the status change)
+    private TaskResponse toTaskResponse(Task task) {
+        List<TaskRoomieResponse> roomies = new ArrayList<>();
+        for (Roomie roomie : task.getRoomies()) {
+            roomies.add(toTaskRoomieResponse(roomie));
+        }
+
+        return new TaskResponse(
+                task.getId(),
+                task.getName(),
+                task.getDescription(),
+                // LocalDate -> "2026-10-27", or null if there is no due date
+                task.getDueDate() == null ? null : task.getDueDate().toString(),
+                // PENDING -> "pending"
+                task.getStatus().toLabel(),
+                roomies);
+    }
+
+    // For one roomie (in the list of roomies and in each task)
+    private TaskRoomieResponse toTaskRoomieResponse(Roomie roomie) {
+        return new TaskRoomieResponse(roomie.getIdPerson(), roomie.getFirstName(), roomie.getLastName());
     }
 }

@@ -1,9 +1,5 @@
 package be.cohabitapi.cohabitapi.DTO;
 
-import be.cohabitapi.cohabitapi.Models.Roomie;
-import be.cohabitapi.cohabitapi.Models.Task;
-
-import java.util.ArrayList;
 import java.util.List;
 
 // The task sent back to the front (after add, in the list, after update)
@@ -18,50 +14,66 @@ public class TaskResponse {
     // "pending" or "completed"
     private String status;
     // The assigned roomies, with their names so the front can display them
-    private List<TaskRoomieResponse> roomies = new ArrayList<>();
+    private List<TaskRoomieResponse> roomies;
 
     // Empty constructor: Jackson needs it
     public TaskResponse() {
     }
 
-    // Builds the answer from the model (reused by add, list and update)
-    public TaskResponse(Task task) {
-        this.id = task.getId();
-        this.name = task.getName();
-        this.description = task.getDescription();
-        // LocalDate -> "2026-10-27", or null if there is no due date
-        this.dueDate = task.getDueDate() == null ? null : task.getDueDate().toString();
-        // PENDING -> "pending"
-        this.status = task.getStatus().toLabel();
-
-        // Each Roomie object becomes a small TaskRoomieResponse
-        for (Roomie roomie : task.getRoomies()) {
-            roomies.add(new TaskRoomieResponse(roomie));
-        }
+    public TaskResponse(Integer id, String name, String description, String dueDate, String status, List<TaskRoomieResponse> roomies) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.dueDate = dueDate;
+        this.status = status;
+        this.roomies = roomies;
     }
 
-    // Only getters: Jackson only needs them to turn the object into JSON
     public Integer getId() {
         return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
     }
 
     public String getName() {
         return name;
     }
 
+    public void setName(String name) {
+        this.name = name;
+    }
+
     public String getDescription() {
         return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public String getDueDate() {
         return dueDate;
     }
 
+    public void setDueDate(String dueDate) {
+        this.dueDate = dueDate;
+    }
+
     public String getStatus() {
         return status;
     }
 
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
     public List<TaskRoomieResponse> getRoomies() {
         return roomies;
+    }
+
+    public void setRoomies(List<TaskRoomieResponse> roomies) {
+        this.roomies = roomies;
     }
 }

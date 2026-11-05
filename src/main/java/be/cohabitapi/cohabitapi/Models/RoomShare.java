@@ -40,7 +40,7 @@ public class RoomShare {
     // mappedBy is to say that the link is the roomshare attribute from Task
     // cascade all and orphanremoval it's used when a roomshare is deleted their tasks are too.
     @OneToMany(mappedBy = "roomshare", cascade = CascadeType.ALL, orphanRemoval = true)
-    private final List<Task> tasks = new ArrayList<>();
+    private List<Task> tasks = new ArrayList<>();
 
 
     // ------------------------- Getters and Setters --------------------------------------------------
