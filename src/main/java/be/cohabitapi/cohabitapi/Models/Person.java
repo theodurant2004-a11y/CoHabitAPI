@@ -105,7 +105,7 @@ public abstract class Person {
         if (plainPassword.getBytes(StandardCharsets.UTF_8).length > 72) {
             throw new IllegalArgumentException("Password too long.");
         }
-        this.passwordHash = hashpassword(plainPassword);
+        this.passwordHash = hashPassword(plainPassword);
     }
     //==============================CONSTRUCTOR==============================
     // Required by JPA/Hibernate to load a Person from the database.
@@ -159,7 +159,7 @@ public abstract class Person {
         return cents;
     }
 
-    public static String hashpassword(String password){
+    private static String hashPassword(String password){
 
         //Define a cost factor => Default is 10
         //The higher the value, the longer the hashing time and the more secure the hash
