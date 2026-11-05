@@ -4,7 +4,6 @@ import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.DTO.CreateRoomShareRequest;
 import be.cohabitapi.cohabitapi.DTO.CreateRoomShareResponse;
-import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.RoomShare;
@@ -63,7 +62,7 @@ public class RoomShareAPI {
         catch (UserNotFoundException e) {
             return error(Response.Status.UNAUTHORIZED, e.getMessage());
         }
-        catch (UnauthorizedUserException e) {
+        catch (ForbiddenRoleException e) {
             return error(Response.Status.FORBIDDEN, e.getMessage());
         }
         catch(RuntimeException e){

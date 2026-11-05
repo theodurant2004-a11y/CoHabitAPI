@@ -1,6 +1,7 @@
 package be.cohabitapi.cohabitapi.DAO;
 
 import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
+import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.MembershipStatus;
 import be.cohabitapi.cohabitapi.Models.RoomShare;
@@ -9,6 +10,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import be.cohabitapi.cohabitapi.Models.Person;
+import jakarta.persistence.NoResultException;
+
 import java.util.List;
 
 @ApplicationScoped
@@ -74,6 +77,18 @@ public class PersonDAO extends DAO<Person>{
             return results.isEmpty() ? null : results.get(0);
         } finally {
             em.close();
+        }
+    }
+
+    // Doit on le mettre dans un roomie dao ?
+    public Roomie findById(int id){
+
+        try (EntityManager em = JpaUtil.createEntityManager()) {
+            Roomie r = em.find(Roomie.class, id);
+
+            if (r == null) throw new UserNotFoundException();
+
+            return r;
         }
     }
 
