@@ -3,9 +3,11 @@ package be.cohabitapi.cohabitapi.API;
 import be.cohabitapi.cohabitapi.DAO.ExpenseDAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
+import be.cohabitapi.cohabitapi.DTO.CategoryResponse;
 import be.cohabitapi.cohabitapi.DTO.CreateExpenseRequest;
 import be.cohabitapi.cohabitapi.DTO.ExpensesResponse;
 import be.cohabitapi.cohabitapi.Models.Expense;
+import be.cohabitapi.cohabitapi.Models.ExpenseCategory;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import be.cohabitapi.cohabitapi.Models.RoomShare;
 import be.cohabitapi.cohabitapi.Models.Roomie;
@@ -187,6 +189,22 @@ class ExpenseAPITest {
         doThrow(new RuntimeException("database down")).when(roomShareDAO).findWithRoomies(any());
 
         assertEquals(500, api.getExpenses("me@mail.com").getStatus());
+    }
+
+
+    // ------------------------- GET : the categories --------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getCategories_returns200WithAllTheCategories() {
+        Response response = api.getCategories();
+
+        assertEquals(200, response.getStatus());
+        List<CategoryResponse> body = (List<CategoryResponse>) response.getEntity();
+        assertEquals(ExpenseCategory.values().length, body.size());
+        assertEquals(ExpenseCategory.FOOD.getCode(), body.get(0).getCode());
+        assertEquals(ExpenseCategory.FOOD.getLabel(), body.get(0).getLabel());
+        assertEquals(ExpenseCategory.FOOD.getIcon(), body.get(0).getIcon());
     }
 
 

@@ -4,6 +4,7 @@ import be.cohabitapi.cohabitapi.DAO.ExpenseDAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.DTO.BalanceResponse;
+import be.cohabitapi.cohabitapi.DTO.CategoryResponse;
 import be.cohabitapi.cohabitapi.DTO.CreateExpenseRequest;
 import be.cohabitapi.cohabitapi.DTO.ExpenseLineResponse;
 import be.cohabitapi.cohabitapi.DTO.ExpensesResponse;
@@ -14,6 +15,7 @@ import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Expense;
+import be.cohabitapi.cohabitapi.Models.ExpenseCategory;
 import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.Refund;
 import be.cohabitapi.cohabitapi.Models.Roomie;
@@ -60,6 +62,24 @@ public class ExpenseAPI {
 
         } catch (NotInRoomshareException e) {
             return error(Response.Status.FORBIDDEN, e.getMessage());
+
+        } catch (RuntimeException e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
+        }
+    }
+
+    // The categories for the form
+    @GET
+    @Path("/categories")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getCategories() {
+        try {
+            List<CategoryResponse> categories = new ArrayList<>();
+            for (ExpenseCategory category : ExpenseCategory.values()) {
+                categories.add(new CategoryResponse(category.getCode(), category.getLabel(), category.getIcon()));
+            }
+
+            return Response.ok(categories).build();
 
         } catch (RuntimeException e) {
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
