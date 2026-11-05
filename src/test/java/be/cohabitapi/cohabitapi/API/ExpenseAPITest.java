@@ -26,7 +26,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
 // These tests check that ExpenseAPI answers with the right HTTP code
-// The business logic is tested in RoomieTest, here we only check the translation model => HTTP
+// The business logic is tested in RoomieExpenseTest, here we only check the translation model => HTTP
 // The DAOs are mocks (no database), but the roomshare, the roomies and the expenses are real objects
 @ExtendWith(MockitoExtension.class)
 class ExpenseAPITest {
@@ -48,7 +48,7 @@ class ExpenseAPITest {
     private Roomie second;
     private Roomie third;
 
-    // This method runs before each test: it prepares a roomshare of 3 accepted roomies
+    // A roomshare of 3 accepted roomies
     @BeforeEach
     void setUp() {
         owner = new Owner("Doe", "Alice", "owner@mail.com", "Test1234!");

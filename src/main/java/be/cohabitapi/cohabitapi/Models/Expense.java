@@ -5,8 +5,8 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 
 // One Expense is a debt: a roomie (the debtor) owes a sum to the person who paid (the creditor)
-// Ex: groceries of 45 euros paid by Nora and shared by Arnaud, Manoah and Hom nix
-// 2 rows: Arnaud owes 15 to Nora and Hom nix owes 15 to Nora (Nora doesn't owe money to herself)
+// Ex: groceries of 45 euros paid by Nora and shared with Arnaud and Manoah
+// 2 rows: Arnaud owes 15 to Nora and Manoah owes 15 to Nora (Nora doesn't owe money to herself)
 @Entity
 @Table(name = "Expense")
 public class Expense {
@@ -124,7 +124,7 @@ public class Expense {
 
     // Constructors
 
-    // Not public because only Hibernate needs it to rebuild an object from the db
+    // Only for Hibernate
     protected Expense() {
     }
 

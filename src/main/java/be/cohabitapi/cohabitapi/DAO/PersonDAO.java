@@ -69,7 +69,6 @@ public class PersonDAO extends DAO<Person>{
             List<Person> results = em.createQuery(
                             "SELECT p FROM Person p WHERE p.email = :email", Person.class)
                     .setParameter("email", email)
-                    // i use getResultList beceause it's  easier if a mistake is made
                     .getResultList();
 
             return results.isEmpty() ? null : results.get(0);
@@ -86,17 +85,13 @@ public class PersonDAO extends DAO<Person>{
         try {
             EntityTransaction transaction = em.getTransaction();
             try {
-                // A transaction groups the changes: everything is saved, or nothing
                 transaction.begin();
 
-                // merge, because the person was loaded by another EntityManager (which is closed now).
-                // An object in that state is "detached": persist would not work, merge copies it into this EntityManager.
+                // merge because the person was loaded by another EntityManager (detached)
                 em.merge(person);
 
-                // The real UPDATE is sent to the database here
                 transaction.commit();
             } catch (RuntimeException e) {
-                // If something failed, cancel the changes
                 if(transaction.isActive()){
                     transaction.rollback();
                 }

@@ -14,15 +14,11 @@ public class RoomShare {
 
     // ------------------------- Attributes and JPA Annotations --------------------------------------------------
 
-    // @Id specifies a primary key
     @Id
-    // @GeneratedValue specifies the auto-increment constraint
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    // @Column specifies which column of the table is involved
     @Column(name = "roomshare_id")
     private Integer id;
 
-    // "length = ..." to match with the db
     @Column(name = "roomshare_invitation_key", length = 50, nullable = false)
     private String invitationKey;
 
@@ -32,13 +28,11 @@ public class RoomShare {
     @Column(name = "roomshare_creation_date", nullable = false)
     private LocalDate creationDate;
 
-    // Foreign key
-    @ManyToOne // Specifies the relation like "Many RoomShares may belong to One Owner"
+    @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
-    // Return the entire object, not only the id
     private Owner owner;
 
-    @OneToMany(mappedBy = "roomshare") // Make the bi-directional link with the roomie
+    @OneToMany(mappedBy = "roomshare")
     @OrderBy("idPerson") // Stable order: the split and the colors depend on it
     private List<Roomie> roomies = new ArrayList<>();
 
@@ -80,7 +74,6 @@ public class RoomShare {
     public Owner getOwner() { return owner; }
 
     public void setOwner(Owner owner) {
-        // Checks and throws an exception if the reference is null
         Objects.requireNonNull(owner);
         this.owner = owner;
     }
@@ -92,8 +85,7 @@ public class RoomShare {
 
     // ------------------------- Constructors --------------------------------------------------
 
-    // Not in public so as not to allow outsiders to use this empty constructor
-    // Not in private because Hibernate needs to use this empty constructor
+    // Only for Hibernate
     protected RoomShare() {
     }
 
@@ -101,8 +93,6 @@ public class RoomShare {
     public RoomShare(String key, String name, Owner owner) {
         setInvitationKey(key);
         setName(name);
-        // LocalDate is used to make the SQL DATE parse easy
-        // It's almost like a DateTime
         setCreationDate(LocalDate.now());
         setOwner(owner);
     }
@@ -125,14 +115,13 @@ public class RoomShare {
         return trimmed;
     }
 
-    // We create our own method to generate de invitation key
-    // We choose to have an invitation key of 6 characters
+    // Generates an invitation key of 6 characters
     public static String generateInvitationKey(RoomShareDAO dao) {
         String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         Random rnd = new SecureRandom();
         String generatedKey;
 
-        // With this loop, the unique constraint is protected from duplicates
+        // The key must be unique in the db
         do {
             StringBuilder sb = new StringBuilder(6);
             for (int i = 0; i < 6; i++) {
@@ -156,7 +145,6 @@ public class RoomShare {
         roomie.setRoomshare(this);
     }
 
-    // The roomies accepted by the owner in the rs
     // The pending roomies are in the list too, so we keep only the accepted ones
     public List<Roomie> getAcceptedRoomies() {
         List<Roomie> accepted = new ArrayList<>();

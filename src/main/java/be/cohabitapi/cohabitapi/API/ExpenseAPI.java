@@ -50,34 +50,28 @@ public class ExpenseAPI {
             return Response.ok(toResponse(me, me.findMyExpenses(), me.suggestRefunds())).build();
 
         } catch (IllegalArgumentException e) {
-            // error 400
             return error(Response.Status.BAD_REQUEST, e.getMessage());
 
         } catch (UserNotFoundException e) {
-            // error 401
             return error(Response.Status.UNAUTHORIZED, e.getMessage());
 
         } catch (ForbiddenRoleException e) {
-            // error 403
             return error(Response.Status.FORBIDDEN,e.getMessage());
 
         } catch (NotInRoomshareException e) {
-            // error 403
             return error(Response.Status.FORBIDDEN, e.getMessage());
 
         } catch (RuntimeException e) {
-            // error 500
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
         }
     }
 
-    // To add an expense one debt is created for each roomie
+    // To add an expense: one debt is created for each roomie
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response createExpense(CreateExpenseRequest req) {
 
-        // if no body at all 400 error
         if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
 
         try {
@@ -96,23 +90,18 @@ public class ExpenseAPI {
             return Response.status(Response.Status.CREATED).build();
 
         } catch (IllegalArgumentException e) {
-            // error 400
             return error(Response.Status.BAD_REQUEST, e.getMessage());
 
         } catch (UserNotFoundException e) {
-            // error 401
             return error(Response.Status.UNAUTHORIZED, e.getMessage());
 
         } catch (ForbiddenRoleException e) {
-            // error 403: an owner has no expenses
             return error(Response.Status.FORBIDDEN, e.getMessage());
 
         } catch (NotInRoomshareException e) {
-            // error 403: no roomshare yet or request  pending
             return error(Response.Status.FORBIDDEN, e.getMessage());
 
         } catch (RuntimeException e) {
-            // error 500
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
         }
     }
@@ -161,7 +150,7 @@ public class ExpenseAPI {
         return new ExpensesResponse(me.getIdPerson(), members, summary, expenses, balanceList, refundList);
     }
 
-    // First name  last name of a person
+    // First name and last name of a person
     private String fullName(Person person) {
         return person.getFirstName() + " " + person.getLastName();
     }

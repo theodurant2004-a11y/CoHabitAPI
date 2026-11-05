@@ -19,10 +19,8 @@ public class RoomShareDAO extends DAO<RoomShare> {
             try {
                 transaction.begin();
 
-                // Here is like a INSERT in db but just "the preparation"
                 em.persist(rs);
 
-                // The real INSERT in db is here, with the commit confirmation
                 transaction.commit();
             } catch (RuntimeException e) {
                 if(transaction.isActive()){
@@ -53,13 +51,9 @@ public class RoomShareDAO extends DAO<RoomShare> {
 
     // This method is to join a roomshare : it finds a roomshare with its invitation key (null if no roomshare uses it)
     public RoomShare findByInvitationKey(String key) {
-        // One EntityManager per call
         EntityManager em = JpaUtil.createEntityManager();
 
         try {
-            // Here we work on the Java class and not the table: so RoomShare is the class, r.invitationKey is the attribute
-            // :key is a parameter, so there is no sql injection
-            // And I use getResultList instead of getSingleResult so there is no exception when nothing is found
             List<RoomShare> results = em.createQuery(
                             "SELECT r FROM RoomShare r WHERE r.invitationKey = :key", RoomShare.class)
                     .setParameter("key", key)
@@ -68,7 +62,6 @@ public class RoomShareDAO extends DAO<RoomShare> {
             // The key is unique in the db, so there is at most one result
             return results.isEmpty() ? null : results.get(0);
         } finally {
-            // We always need to close the EntityManager, even if there is an error
             em.close();
         }
     }
@@ -96,7 +89,7 @@ public class RoomShareDAO extends DAO<RoomShare> {
                     .setParameter("id", id)
                     .getResultList();
 
-            // 3. The expenses the roomies have to receive
+            // The expenses the roomies have to receive
             em.createQuery(
                             "SELECT DISTINCT r FROM Roomie r LEFT JOIN FETCH r.expensesToReceive WHERE r.roomshare.id = :id",
                             Roomie.class)

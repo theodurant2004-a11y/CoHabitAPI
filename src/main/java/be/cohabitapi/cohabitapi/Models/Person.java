@@ -35,8 +35,7 @@ public abstract class Person {
     @Column(name = "user_password_hash", nullable = false, length = 255)
     private String passwordHash;
 
-    // the expenses he has to receive
-    // mappedBy: the link is already in the Expense class by attribute "creditor"
+    // The expenses he has to receive
     @OneToMany(mappedBy = "creditor")
     private List<Expense> expensesToReceive = new ArrayList<>();
 
@@ -138,7 +137,7 @@ public abstract class Person {
         return sumInCents(expensesToReceive) / 100.0;
     }
 
-    // Abstract bcz a roomie and an owner don't calculate their balance the same way
+    // Abstract because a roomie and an owner don't calculate their balance the same way
     public abstract double calculateBalance();
 
     // Used when a new expense is created
@@ -161,16 +160,8 @@ public abstract class Person {
 
     private static String hashPassword(String password){
 
-        //Define a cost factor => Default is 10
-        //The higher the value, the longer the hashing time and the more secure the hash
-        //https://medium.com/@singhalabhay19/understanding-bcrypt-in-java-a-deep-dive-into-password-hashing-1b4362ccae94
         int log = 12;
-
-        // Generate the salt
-        //A salt is a random string of characters added to a password before it is encrypted or hashed.
         String salt = BCrypt.gensalt(log);
-
-        //hash the password
         return BCrypt.hashpw(password, salt);
 
     }
@@ -205,23 +196,20 @@ public abstract class Person {
         String cleanEmail;
         String cleanPassword;
 
-        // 1. Clean the inputs (empty → same error as a wrong login)
+        // Empty inputs give the same error as a wrong login
         try {
             cleanEmail = normalizeEmail(email);
             cleanPassword = normalizePassword(password);
         } catch (IllegalArgumentException e) {
-            //I’m creating my own exception to return the same error message directly
             throw new InvalidCredentialsException();
         }
 
-        // 2. Find the person and check the password
         Person person = findByEmail(cleanEmail, dao);
 
         if (person == null || !BCrypt.checkpw(cleanPassword, person.getPasswordHash())) {
             throw new InvalidCredentialsException();
         }
 
-        // 3. Everything is OK
         return person;
     }
 
@@ -231,18 +219,14 @@ public abstract class Person {
         String cleanPassword;
         String cleanConfirmPassword;
 
-        // 1. Clean the inputs (same helpers as the login).
-        // An empty value throws an IllegalArgumentException with a clear message.
         cleanEmail = normalizeEmail(email);
         cleanPassword = normalizePassword(password);
         cleanConfirmPassword = confirmPassword == null ? "" : confirmPassword.trim();
 
-        // 2. The password and its confirmation must be the same
         if (!cleanPassword.equals(cleanConfirmPassword)) {
             throw new IllegalArgumentException("Passwords do not match.");
         }
 
-        // 3. Build the right subclass depending on the role.
         String cleanRole = role == null ? "" : role.trim().toLowerCase(Locale.ROOT);
         Person person;
 
@@ -254,12 +238,10 @@ public abstract class Person {
             throw new IllegalArgumentException("Invalid role.");
         }
 
-        // 4. The email must not be used yet
         if (existsByEmail(cleanEmail, dao)) {
             throw new EmailAlreadyUsedException();
         }
 
-        // 5. Everything is OK: save the person (the database gives the id)
         person.create(dao);
         return person;
     }
@@ -269,19 +251,15 @@ public abstract class Person {
 
     @Override
     public boolean equals(Object o) {
-        // Check if it's the same instance
         if (this == o) return true;
-        // Check if it's null or not an instance of the same class
         if (o == null || getClass() != o.getClass()) return false;
 
-        // Cast the object in the case of it's an instance of a Daughter class
         Person person = (Person) o;
 
-        // Check if it's the same person, characterized by the email
+        // A person is identified by the email
         return java.util.Objects.equals(this.email, person.email);
     }
 
-    // When you override the equals method, you have to override the hashCode method too
     @Override
     public int hashCode() {
         return java.util.Objects.hash(email);

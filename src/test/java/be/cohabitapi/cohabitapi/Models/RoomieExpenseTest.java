@@ -28,7 +28,6 @@ import static org.mockito.Mockito.*;
 // These tests check the business logic of the expenses (split, balances, refunds)
 // The roomshare, the roomies and the expenses are real objects, only the DAOs are mocks
 @ExtendWith(MockitoExtension.class)
-// PER_CLASS: the same test object is used for all the tests, so @BeforeAll does not need to be static
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class RoomieExpenseTest {
 
@@ -51,7 +50,7 @@ class RoomieExpenseTest {
     private Roomie second;
     private Roomie third;
 
-    // Runs one time: hashing a password is slow, so we create the roomies only once
+    // Hashing a password is slow, so we create the roomies only once
     @BeforeAll
     void createRoomshare() {
         owner = new Owner("Doe", "Alice", "owner@mail.com", PASSWORD);
@@ -67,7 +66,6 @@ class RoomieExpenseTest {
         third.setIdPerson(3);
     }
 
-    // Runs before each test: nobody has expenses at the start
     @BeforeEach
     void clearExpenses() {
         for (Roomie roomie : List.of(me, second, third)) {

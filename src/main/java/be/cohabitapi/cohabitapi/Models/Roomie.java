@@ -32,16 +32,12 @@ public class Roomie extends Person {
     @JoinColumn(name = "roomshare_id")
     private RoomShare roomshare;
 
-    // The membership status
-    // @Convert: JPA uses the converter inside the enum to store it as a number
-    // A new roomie has no roomshare, so he starts with none
-    // nullable = false because the roomie_status column is NOT NULL in the db
+    // A new roomie has no roomshare, so he starts with NONE
     @Convert(converter = MembershipStatus.DbConverter.class)
     @Column(name = "roomie_status", nullable = false)
     private MembershipStatus statusMember = MembershipStatus.NONE;
 
     // The expenses this roomie has to pay
-    // mappedBy: the link is already stored in the Expense class (attribute debtor)
     @OneToMany(mappedBy = "debtor")
     private List<Expense> expensesToPay = new ArrayList<>();
 
@@ -103,16 +99,12 @@ public class Roomie extends Person {
         this.statusMember = MembershipStatus.PENDING;
     }
 
-    // The whole "join a roomshare" use case. The API only calls this method
-    // It receives the DAOs as parameters
+    // The whole "join a roomshare" use case
     public static Roomie requestToJoin(String email, String invitationKey,
                                        PersonDAO personDAO, RoomShareDAO roomShareDAO) {
-        // 1. Clean the inputs
-        // Both methods throw an IllegalArgumentException (400) if the value is not valid
         String cleanKey = normalizeInvitationKey(invitationKey);
         String cleanEmail = Person.normalizeEmail(email);
 
-        // 2. Find the user by his email
         Person person = Person.findByEmail(cleanEmail, personDAO);
 
         // Nobody has this email (the API answers 401)
@@ -123,20 +115,16 @@ public class Roomie extends Person {
         if (!(person instanceof Roomie))
             throw new ForbiddenRoleException();
 
-        // We know it is a Roomie, so we can use it as a Roomie
         Roomie roomie = (Roomie) person;
 
-        // 3. Find the roomshare that uses this invitation key
         RoomShare found = roomShareDAO.findByInvitationKey(cleanKey);
 
         // No roomshare for this key (404)
         if (found == null)
             throw new InvalidInvitationKeyException();
 
-        // 4. Change the state of the roomie in memory
         roomie.sendJoinRequest(found);
 
-        //  save it in the db
         personDAO.update(roomie);
 
         return roomie;
@@ -147,8 +135,6 @@ public class Roomie extends Person {
         if (key == null)
             throw new IllegalArgumentException("The invitation key is required.");
 
-        // trim removes the spaces around
-        // Locale.ROOT makes the result the same on every computer
         String clean = key.trim().toUpperCase(Locale.ROOT);
 
         // 6 characters, only letters A-Z and digits 0-9
@@ -312,7 +298,7 @@ public class Roomie extends Person {
         return (int) Math.round(Math.abs(calculateBalanceInCents()) * 100.0 / biggest);
     }
 
-    // My color depends on my poosition in the list of my roomshare
+    // My color depends on my position in the list of my roomshare
     public String chooseColor() {
         int position = roomshare.getAcceptedRoomies().indexOf(this);
 
@@ -348,7 +334,7 @@ public class Roomie extends Person {
                     creditor = member;
             }
 
-            // Nobody  owes anything anymore
+            // Nobody owes anything anymore
             if (debtor == null || creditor == null)
                 break;
 
