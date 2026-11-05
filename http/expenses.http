@@ -1,0 +1,5 @@
+# Base URL of the API (Tomcat Application context must be /CoHabitAPI)
+@baseUrl = http://localhost:8080/CoHabitAPI/api/expenses
+
+### Categories for the form → 200
+GET {{baseUrl}}/categories

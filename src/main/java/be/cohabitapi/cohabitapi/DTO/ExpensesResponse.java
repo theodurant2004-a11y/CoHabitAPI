@@ -2,30 +2,73 @@ package be.cohabitapi.cohabitapi.DTO;
 
 import java.util.List;
 
-// This class is used to answer the page Expenses of a roomie
-public record ExpensesResponse(
-        Integer currentMemberId,            // the id of the roomie who is signed in
-        List<MemberResponse> members,       // the list of the roomies of the roomshare
-        List<CategoryResponse> categories,  // the list of categories for the form
-        SummaryResponse summary,            // the two cards: what I owe / what I am owed
-        List<ExpenseResponse> expenses,     // the  list of debts that concern me
-        List<BalanceResponse> balances,     // the list of  balance of each roomie
-        List<RefundResponse> refunds) {     // the list of  suggested refunds
+// The answer of GET /api/expenses
+public class ExpensesResponse {
 
-    public record MemberResponse(Integer id, String name, String color) {}
+    private Integer currentMemberId;  // the roomie who is signed in
+    private List<MemberResponse> members;
+    private SummaryResponse summary;
+    private List<ExpenseLineResponse> expenses;  // the debts that concern the roomie
+    private List<BalanceResponse> balances;
+    private List<RefundResponse> refunds;
 
-    public record CategoryResponse(String code, String label, String icon) {}
+    public ExpensesResponse() {
+    }
 
-    public record SummaryResponse(double toPay, double toReceive, boolean hasToPay, boolean hasToReceive,
-                                  double balance, String balanceStatus) {}
+    public ExpensesResponse(Integer currentMemberId, List<MemberResponse> members, SummaryResponse summary, List<ExpenseLineResponse> expenses, List<BalanceResponse> balances, List<RefundResponse> refunds) {
+        this.currentMemberId = currentMemberId;
+        this.members = members;
+        this.summary = summary;
+        this.expenses = expenses;
+        this.balances = balances;
+        this.refunds = refunds;
+    }
 
-    // One line = one debt: debtor owes amount to creditor
-    // status = "pending" or "settled"
-    public record ExpenseResponse(Integer id, String description, Double amount, String date,
-                                  String debtor, String creditor, String icon, String status) {}
+    public Integer getCurrentMemberId() {
+        return currentMemberId;
+    }
 
-    // percent = width of the bar,the biggest balance has 100
-    public record BalanceResponse(String name, String color, Double amount, Integer percent, String sign) {}
+    public void setCurrentMemberId(Integer currentMemberId) {
+        this.currentMemberId = currentMemberId;
+    }
 
-    public record RefundResponse(String from, String to, Double amount) {}
+    public List<MemberResponse> getMembers() {
+        return members;
+    }
+
+    public void setMembers(List<MemberResponse> members) {
+        this.members = members;
+    }
+
+    public SummaryResponse getSummary() {
+        return summary;
+    }
+
+    public void setSummary(SummaryResponse summary) {
+        this.summary = summary;
+    }
+
+    public List<ExpenseLineResponse> getExpenses() {
+        return expenses;
+    }
+
+    public void setExpenses(List<ExpenseLineResponse> expenses) {
+        this.expenses = expenses;
+    }
+
+    public List<BalanceResponse> getBalances() {
+        return balances;
+    }
+
+    public void setBalances(List<BalanceResponse> balances) {
+        this.balances = balances;
+    }
+
+    public List<RefundResponse> getRefunds() {
+        return refunds;
+    }
+
+    public void setRefunds(List<RefundResponse> refunds) {
+        this.refunds = refunds;
+    }
 }

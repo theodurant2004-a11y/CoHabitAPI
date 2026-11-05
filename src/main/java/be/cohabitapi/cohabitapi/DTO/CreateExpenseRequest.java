@@ -4,10 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.List;
 
-//used to receive the JSON sent by the front when a roomie adds an expense
+// The JSON sent by the front when a roomie adds an expense
 // ex: {"description":"Groceries","amount":45,"date":"2026-10-26","paidById":321,
 //           "category":"food","sharedWithIds":[321,322,323],"roomieEmail":"..."}
-// so we ignore the unknown fields so the front can send more data without breaking the API
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CreateExpenseRequest {
 
@@ -21,7 +20,7 @@ public class CreateExpenseRequest {
     // TODO : remove it when the session system is efficient
     private String roomieEmail;
 
-    // Empty constructor bcs Jackson needs it to build the object from the JSON
+    // Empty constructor because Jackson needs it to build the object from the JSON
     public CreateExpenseRequest() {
     }
 

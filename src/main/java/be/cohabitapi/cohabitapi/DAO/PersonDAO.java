@@ -10,7 +10,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import be.cohabitapi.cohabitapi.Models.Person;
 import java.util.List;
-import java.util.Locale;
 
 @ApplicationScoped
 public class PersonDAO extends DAO<Person>{
@@ -60,13 +59,16 @@ public class PersonDAO extends DAO<Person>{
 
     //LOGIN: Find existing email and take information
     public Person findByEmail(String email){
+        // An email that is null can't be in the db
+        if (email == null)
+            return null;
+
         EntityManager em = JpaUtil.createEntityManager();
 
         try {
             List<Person> results = em.createQuery(
                             "SELECT p FROM Person p WHERE p.email = :email", Person.class)
                     .setParameter("email", email)
-                    // i use getResultList beceause it's  easier if a mistake is made
                     .getResultList();
 
             return results.isEmpty() ? null : results.get(0);
@@ -83,42 +85,19 @@ public class PersonDAO extends DAO<Person>{
         try {
             EntityTransaction transaction = em.getTransaction();
             try {
-                // A transaction groups the changes: everything is saved, or nothing
                 transaction.begin();
 
-                // merge, because the person was loaded by another EntityManager (which is closed now).
-                // An object in that state is "detached": persist would not work, merge copies it into this EntityManager.
+                // merge because the person was loaded by another EntityManager (detached)
                 em.merge(person);
 
-                // The real UPDATE is sent to the database here
                 transaction.commit();
             } catch (RuntimeException e) {
-                // If something failed, cancel the changes
                 if(transaction.isActive()){
                     transaction.rollback();
                 }
 
                 throw e;
             }
-        } finally {
-            em.close();
-        }
-    }
-
-
-    // This method is used to get the roomies that are in a roomshare
-    // They are always in the same order (by id), so the colors of the roomies never change
-    // We use a query (and not roomshare.getRoomies()) because that list is lazy so it cannot be read here
-    public List<Roomie> findAcceptedRoomies(RoomShare roomshare) {
-        EntityManager em = JpaUtil.createEntityManager();
-
-        try {
-            return em.createQuery(
-                            "SELECT r FROM Roomie r WHERE r.roomshare.id = :id AND r.statusMember = :status "
-                                    + "ORDER BY r.idPerson", Roomie.class)
-                    .setParameter("id", roomshare.getId())
-                    .setParameter("status", MembershipStatus.ACCEPTED)
-                    .getResultList();
         } finally {
             em.close();
         }
