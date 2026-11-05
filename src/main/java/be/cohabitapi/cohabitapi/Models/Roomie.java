@@ -263,28 +263,6 @@ public class Roomie extends Person {
         return sumInCents(getExpensesToReceive()) - sumInCents(expensesToPay);
     }
 
-    public boolean hasToPay() {
-        return calculateToPay() > 0;
-    }
-
-    public boolean hasToReceive() {
-        return calculateToReceive() > 0;
-    }
-
-    // The status of the balance
-    public String getBalanceStatus() {
-        long cents = calculateBalanceInCents();
-
-        if (cents > 0) return "creditor";
-        if (cents < 0) return "debtor";
-        return "balanced";
-    }
-
-    // The sign of the balance in text
-    public String getBalanceSign() {
-        return calculateBalanceInCents() < 0 ? "negative" : "positive";
-    }
-
     // The width of my bar in percent: the biggest balance of the roomshare gets 100%
     public int calculatePercent() {
         long biggest = 0;

@@ -431,17 +431,6 @@ class RoomieExpenseTest {
     void totals_noDebt_giveZero() {
         assertEquals(0.0, me.calculateToPay(), 0.001);
         assertEquals(0.0, me.calculateToReceive(), 0.001);
-        assertFalse(me.hasToPay());
-        assertFalse(me.hasToReceive());
-    }
-
-    @Test
-    void hasToPayAndHasToReceive_trueWhenThereIsSomething() {
-        debt(10, me, second);
-        debt(5, third, me);
-
-        assertTrue(me.hasToPay());
-        assertTrue(me.hasToReceive());
     }
 
 
@@ -488,24 +477,6 @@ class RoomieExpenseTest {
         debt(5, me, owner);
 
         assertEquals(5.0, owner.calculateBalance(), 0.001);
-    }
-
-    @Test
-    void getBalanceStatus_creditorDebtorOrBalanced() {
-        debt(10, second, me);
-
-        assertEquals("creditor", me.getBalanceStatus());
-        assertEquals("debtor", second.getBalanceStatus());
-        assertEquals("balanced", third.getBalanceStatus());
-    }
-
-    @Test
-    void getBalanceSign_negativeWhenTheRoomieOwesMoney() {
-        debt(10, second, me);
-
-        assertEquals("positive", me.getBalanceSign());
-        assertEquals("negative", second.getBalanceSign());
-        assertEquals("positive", third.getBalanceSign());
     }
 
 
