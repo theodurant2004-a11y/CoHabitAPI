@@ -6,7 +6,6 @@ import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.EXCEPTION.AlreadyInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidInvitationKeyException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
-import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
@@ -79,17 +78,6 @@ public class Roomie extends Person {
     }
 
     //  ROLES
-
-    @Override
-    public Roomie toRoomie() {
-        return this;
-    }
-
-    // A roomie is not an owner
-    @Override
-    public Owner toOwner() {
-        throw new UnauthorizedUserException();
-    }
 
     // A roomie can use the expenses only if the owner accepted him
     public void checkIsAccepted() {

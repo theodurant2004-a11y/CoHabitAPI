@@ -141,11 +141,6 @@ public abstract class Person {
     // Abstract bcz a roomie and an owner don't calculate their balance the same way
     public abstract double calculateBalance();
 
-    // Each child says if it can act as a roomie or as an owner
-    public abstract Roomie toRoomie();
-
-    public abstract Owner toOwner();
-
     // Used when a new expense is created
     public void addExpenseToReceive(Expense expense) {
         if (expense == null)

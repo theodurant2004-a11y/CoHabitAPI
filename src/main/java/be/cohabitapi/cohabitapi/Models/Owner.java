@@ -1,7 +1,6 @@
 package be.cohabitapi.cohabitapi.Models;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
-import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
@@ -42,16 +41,5 @@ public class Owner extends Person{
     @Override
     public double calculateBalance() {
         return calculateToReceive();
-    }
-
-    @Override
-    public Owner toOwner() {
-        return this;
-    }
-
-    // An owner is not a roomie
-    @Override
-    public Roomie toRoomie() {
-        throw new ForbiddenRoleException();
     }
 }

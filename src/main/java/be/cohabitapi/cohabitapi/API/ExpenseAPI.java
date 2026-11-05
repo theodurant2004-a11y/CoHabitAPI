@@ -132,8 +132,11 @@ public class ExpenseAPI {
         if (person == null)
             throw new UserNotFoundException();
 
-        // An owner throws a exception here
-        Roomie roomie = person.toRoomie();
+        // An owner is a Person but not a Roomie
+        if (!(person instanceof Roomie))
+            throw new ForbiddenRoleException();
+
+        Roomie roomie = (Roomie) person;
         roomie.checkIsAccepted();
 
         return roomie.loadRoomshare(roomShareDAO);

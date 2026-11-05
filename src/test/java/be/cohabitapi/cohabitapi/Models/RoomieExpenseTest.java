@@ -2,9 +2,7 @@ package be.cohabitapi.cohabitapi.Models;
 
 import be.cohabitapi.cohabitapi.DAO.ExpenseDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
-import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
-import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -103,26 +101,6 @@ class RoomieExpenseTest {
 
 
     // ------------------------- Roles --------------------------------------------------
-
-    @Test
-    void toRoomie_aRoomie_returnsHimself() {
-        assertSame(me, me.toRoomie());
-    }
-
-    @Test
-    void toOwner_aRoomie_throwsUnauthorizedUserException() {
-        assertThrows(UnauthorizedUserException.class, me::toOwner);
-    }
-
-    @Test
-    void toOwner_anOwner_returnsHimself() {
-        assertSame(owner, owner.toOwner());
-    }
-
-    @Test
-    void toRoomie_anOwner_throwsForbiddenRoleException() {
-        assertThrows(ForbiddenRoleException.class, owner::toRoomie);
-    }
 
     @Test
     void checkIsAccepted_acceptedRoomie_doesNotThrow() {
