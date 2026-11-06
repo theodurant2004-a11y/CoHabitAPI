@@ -7,7 +7,9 @@ import be.cohabitapi.cohabitapi.DAO.DAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.EXCEPTION.NoItemInTheListException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotMemberOfRoomShareException;
+import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
 import jakarta.ws.rs.core.Response;
 
@@ -186,6 +188,43 @@ public class RoomShare {
     // ------------------------- DAO methods --------------------------------------------------
 
     public void create(DAO<RoomShare> dao) { dao.create(this); }
+
+    // ------------------------- MEMBERS OF A ROOMSHARE --------------------------------------------------
+
+    // The whole "see the members" use case. The API only calls this method
+    // It returns the members of the roomshare of the user who asks: the owner first, then the accepted roomies
+    // The owner and the roomies can both use it (the user who asks is in the list too)
+    public static List<Person> findMembers(String email, PersonDAO personDAO) {
+        // 1. Clean the email (IllegalArgumentException = 400 if it is empty) and find the user
+        Person user = Person.findByEmail(Person.normalizeEmail(email), personDAO);
+
+        // Nobody has this email (the API answers 401)
+        if (user == null)
+            throw new UserNotFoundException();
+
+        // 2. Find the owner of the roomshare
+        Owner owner;
+        if (user instanceof Owner) {
+            // The user is the owner himself
+            owner = (Owner) user;
+        } else {
+            // The user is a roomie: he sees the members only if the owner accepted him (403)
+            // A pending roomie is not a member yet, so he cannot see the others
+            Roomie roomie = (Roomie) user;
+            if (roomie.getStatusMember() != MembershipStatus.ACCEPTED)
+                throw new NotInRoomshareException();
+
+            // The roomshare and its owner are @ManyToOne, so they were loaded with the roomie (EAGER)
+            owner = roomie.getRoomshare().getOwner();
+        }
+
+        // 3. Build the list: the owner first, then the accepted roomies given by the DAO
+        List<Person> members = new ArrayList<>();
+        members.add(owner);
+        members.addAll(personDAO.findAcceptedRoomiesByOwner(owner.getIdPerson()));
+
+        return members;
+    }
 
     public static RoomShare findById(RoomShareDAO dao, Integer id) { return dao.findById(id); }
 }

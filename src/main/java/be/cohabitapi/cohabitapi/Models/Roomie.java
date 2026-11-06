@@ -7,6 +7,9 @@ import be.cohabitapi.cohabitapi.EXCEPTION.AlreadyInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidInvitationKeyException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NoPendingRequestException;
+import be.cohabitapi.cohabitapi.EXCEPTION.JoinRequestNotFoundException;
+import be.cohabitapi.cohabitapi.EXCEPTION.MemberNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
 
@@ -247,6 +250,9 @@ public class Roomie extends Person {
     public static Roomie checkRightRoomie(PersonDAO dao, int userId) {
         Person roomie = Person.findById(dao, userId);
 
+        if (roomie == null)
+            throw new UserNotFoundException();
+
         if(!(roomie instanceof Roomie))
             throw new ForbiddenRoleException();
 
@@ -338,4 +344,136 @@ public class Roomie extends Person {
             throw new IllegalArgumentException("The date must look like 2026-10-20.");
         }
     }
+
+    //  ACCEPT A ROOMIE
+
+    // The owner accepts the request: the roomie becomes a real member of the roomshare
+    public void acceptRequest() {
+        // Only a request that is waiting can be accepted (the API turns it into a 409)
+        if (this.statusMember != MembershipStatus.PENDING)
+            throw new NoPendingRequestException();
+
+        // The roomshare does not change: it was already set by sendJoinRequest
+        this.statusMember = MembershipStatus.ACCEPTED;
+    }
+
+    // The owner refuses the request: the roomie goes back to the start, without roomshare
+    public void refuseRequest() {
+        // Only a request that is waiting can be refused (the API turns it into a 409)
+        if (this.statusMember != MembershipStatus.PENDING)
+            throw new NoPendingRequestException();
+
+        // No roomshare anymore: sendJoinRequest refuses a new request if the roomshare is not null,
+        // so without this line a refused roomie could never ask again
+        this.roomshare = null;
+        this.statusMember = MembershipStatus.NONE;
+    }
+
+    // Returns true if this roomie asked to join a roomshare of this owner
+    // It is the security rule: an owner cannot answer the requests of another owner
+    public boolean belongsToOwner(Owner owner) {
+        // Each check protects the next one from a NullPointerException (&& stops at the first false)
+        return owner != null
+                && owner.getIdPerson() != null
+                && this.roomshare != null
+                && this.roomshare.getOwner() != null
+                // We compare the ids and not the objects: the owner and the roomie were loaded
+                // by different EntityManagers, so they are different objects in memory
+                // Objects.equals because the ids are Integer (== between two Integer compares the objects)
+                && Objects.equals(this.roomshare.getOwner().getIdPerson(), owner.getIdPerson());
+    }
+
+    // The whole "accept a roomie" use case. The API only calls this method
+    // accept = true: the roomie is accepted, accept = false: the request is refused
+    // It receives the DAO as a parameter, like requestToJoin
+    public static Roomie answerJoinRequest(String ownerEmail, Integer roomieId, Boolean accept, PersonDAO personDAO) {
+        // 1. Check the inputs before using the db (the API answers 400)
+        if (roomieId == null)
+            throw new IllegalArgumentException("The roomie id is required.");
+        if (accept == null)
+            throw new IllegalArgumentException("The answer (accept) is required.");
+        // 2. Find the user who answers and check that he is an owner
+        // checkRightOwner throws UserNotFoundException (401) or ForbiddenRoleException (403)
+        Owner owner = Owner.checkRightOwner(ownerEmail, personDAO);
+        // 3. Find the roomie with his id
+        Person person = personDAO.findById(roomieId);
+
+        // Nobody with this id, or it is not a roomie, or he asked to join the roomshare of another owner (404)
+        // instanceof is false when person is null, so one condition covers the first two cases
+        // With ||, belongsToOwner is only called when the person is a Roomie
+        if (!(person instanceof Roomie) || !((Roomie) person).belongsToOwner(owner))
+            throw new JoinRequestNotFoundException();
+
+        // We know it is a Roomie, so we can use it as a Roomie
+        Roomie roomie = (Roomie) person;
+
+        // 4. Change the state of the roomie in memory (409 if the request is not pending anymore)
+        if (accept) {
+            roomie.acceptRequest();
+        } else {
+            roomie.refuseRequest();
+        }
+
+        // 5. Save it in the db, at the end so nothing is saved if a step failed
+        personDAO.update(roomie);
+
+        return roomie;
+    }
+
+    // The list of the requests waiting for an answer in the roomshare of this owner
+    // The API only calls this method
+    public static List<Roomie> findPendingRequests(String ownerEmail, PersonDAO personDAO) {
+        // Only an owner can see the requests (401 / 403 like above)
+        Owner owner = Owner.checkRightOwner(ownerEmail, personDAO);
+
+        // The DAO does the search in the db
+        return personDAO.findPendingRoomiesByOwner(owner.getIdPerson());
+    }
+
+    //  REMOVE A ROOMIE
+
+    // The owner removes the roomie from the roomshare: the roomie goes back to the start, without roomshare
+    // His account is NOT deleted: he can still sign in and join a roomshare again with a key
+    public void removeFromRoomshare() {
+        // Only a real member (ACCEPTED) can be removed (the API turns it into a 404)
+        // A pending roomie is not a member: the owner refuses his request instead
+        if (this.statusMember != MembershipStatus.ACCEPTED)
+            throw new MemberNotFoundException();
+
+        // Same state as a new roomie: no roomshare and status NONE
+        this.roomshare = null;
+        this.statusMember = MembershipStatus.NONE;
+    }
+
+    // The whole "remove a roomie" use case. The API only calls this method
+    // Same steps as answerJoinRequest: check the inputs, the owner, the roomie, then change and save
+    public static Roomie removeMember(String ownerEmail, Integer roomieId, PersonDAO personDAO) {
+        // 1. Check the input before using the db (the API answers 400)
+        if (roomieId == null)
+            throw new IllegalArgumentException("The roomie id is required.");
+
+        // 2. Find the user who removes and check that he is an owner
+        // checkRightOwner throws UserNotFoundException (401) or ForbiddenRoleException (403)
+        Owner owner = Owner.checkRightOwner(ownerEmail, personDAO);
+
+        // 3. Find the roomie with his id
+        Person person = personDAO.findById(roomieId);
+
+        // Nobody with this id, or it is not a roomie, or he is in the roomshare of another owner (404)
+        // belongsToOwner is the same security rule as for the join requests
+        if (!(person instanceof Roomie) || !((Roomie) person).belongsToOwner(owner))
+            throw new MemberNotFoundException();
+
+        // We know it is a Roomie, so we can use it as a Roomie
+        Roomie roomie = (Roomie) person;
+
+        // 4. Change the state of the roomie in memory (404 if he is not an accepted member)
+        roomie.removeFromRoomshare();
+
+        // 5. Save it in the db, at the end so nothing is saved if a step failed
+        personDAO.update(roomie);
+
+        return roomie;
+    }
+
 }
