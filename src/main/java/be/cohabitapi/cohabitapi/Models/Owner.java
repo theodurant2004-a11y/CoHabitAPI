@@ -1,6 +1,7 @@
 package be.cohabitapi.cohabitapi.Models;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
+import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
@@ -35,6 +36,12 @@ public class Owner extends Person{
             throw new ForbiddenRoleException();
 
         return (Owner)owner;
+    }
+
+    // to log in : the roomshare this owner already created or null if he has not created it yet
+    // The relation owner -> roomshare is only stored on the roomshare side, so we ask the DAO
+    public RoomShare findRoomshare(RoomShareDAO dao) {
+        return dao.findByOwner(this);
     }
 
     // An owner never owes money, so his balance is only what he has to receive

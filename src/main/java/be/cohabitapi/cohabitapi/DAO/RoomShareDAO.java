@@ -3,6 +3,7 @@ package be.cohabitapi.cohabitapi.DAO;
 import be.cohabitapi.cohabitapi.EXCEPTION.RoomShareNotFoundException;
 import be.cohabitapi.cohabitapi.Models.RoomShare;
 import be.cohabitapi.cohabitapi.Models.Roomie;
+import be.cohabitapi.cohabitapi.Models.Owner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
@@ -37,6 +38,19 @@ public class RoomShareDAO extends DAO<RoomShare> {
             RoomShare rs = em.find(RoomShare.class, id);
             if (rs == null) throw new RoomShareNotFoundException();
             return rs;
+        }
+    }
+
+    // LOGIN : the roomshare created by an owner (null if he has not created it yet)
+    public RoomShare findByOwner(Owner owner) {
+        try (EntityManager em = JpaUtil.createEntityManager()) {
+            List<RoomShare> found = em.createQuery(
+                            "SELECT r FROM RoomShare r WHERE r.owner.idPerson = :ownerId ORDER BY r.id", RoomShare.class)
+                    .setParameter("ownerId", owner.getIdPerson())
+                    .setMaxResults(1)
+                    .getResultList();
+
+            return found.isEmpty() ? null : found.get(0);
         }
     }
 

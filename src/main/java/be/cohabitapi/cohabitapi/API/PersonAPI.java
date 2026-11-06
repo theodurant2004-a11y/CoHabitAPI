@@ -1,6 +1,9 @@
 package be.cohabitapi.cohabitapi.API;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
+import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
+import be.cohabitapi.cohabitapi.Models.Owner;
+import be.cohabitapi.cohabitapi.Models.RoomShare;
 import be.cohabitapi.cohabitapi.DTO.SigninRequest;
 import be.cohabitapi.cohabitapi.DTO.SignupRequest;
 import be.cohabitapi.cohabitapi.DTO.UserResponse;
@@ -22,6 +25,9 @@ public class PersonAPI {
 
     @Inject
     private PersonDAO dao;
+
+    @Inject
+    private RoomShareDAO roomShareDAO;
 
 // SIGNUP
     @POST
@@ -94,11 +100,17 @@ public class PersonAPI {
             UserResponse userResponse = new UserResponse(personLogin.getIdPerson(), personLogin.getFirstName(), personLogin.getLastName(), personLogin.getEmail(), role.toLowerCase(Locale.ROOT));
 
             // A roomie gets his membership status and the name of his roomshare
-            // An owner has none of this: the fields stay null
+            // An owner gets the name and the key of his roomshare if he already created it
             if (personLogin instanceof Roomie roomie) {
                 userResponse.setMembershipStatus(roomie.getStatusMember().name().toLowerCase(Locale.ROOT)); // PENDING becomes "pending"
                 if (roomie.getRoomshare() != null) {
                     userResponse.setRoomshareName(roomie.getRoomshare().getName());
+                }
+            } else if (personLogin instanceof Owner owner) {
+                RoomShare roomshare = owner.findRoomshare(roomShareDAO);
+                if (roomshare != null) {
+                    userResponse.setRoomshareName(roomshare.getName());
+                    userResponse.setInvitationKey(roomshare.getInvitationKey());
                 }
             }
 
