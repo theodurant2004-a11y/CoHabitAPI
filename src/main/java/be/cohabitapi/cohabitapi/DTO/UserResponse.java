@@ -12,6 +12,7 @@ public class UserResponse {
     // Only filled at the login and roomie gets his status ("none", "pending" or "accepted")
     private String membershipStatus;
     private String roomshareName;
+    private String invitationKey;
 
     public Integer getId_person() {
         return id_person;
@@ -68,6 +69,14 @@ public class UserResponse {
 
     public void setRoomshareName(String roomshareName) {
         this.roomshareName = roomshareName;
+    }
+
+    public String getInvitationKey() {
+        return invitationKey;
+    }
+
+    public void setInvitationKey(String invitationKey) {
+        this.invitationKey = invitationKey;
     }
 
     public UserResponse(){}
