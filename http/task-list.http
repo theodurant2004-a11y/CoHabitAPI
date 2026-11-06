@@ -1,0 +1,66 @@
+# Base URL of the API (Tomcat Application context must be /CoHabitAPI)
+@baseUrl = http://localhost:8080/CoHabitAPI/api/tasks
+
+# Uses the test data of task-test-data.sql (no id needed here, only the emails)
+# tasktestroomshare       : owner, accepted1, accepted2, pending
+# tasktestroomshare_other : owner_other, roomie_other
+# A GET has no body: the email is sent in the URL (?roomieEmail=...)
+
+### 1. Accepted roomie → 200, the tasks of tasktestroomshare + "roomies" = accepted1 and accepted2 only (not pending)
+GET {{baseUrl}}?roomieEmail=task_roomie_accepted1@test.be
+Accept: application/json
+
+### 2. The other accepted roomie of the same roomshare → 200, exactly the same answer as request 1
+GET {{baseUrl}}?roomieEmail=task_roomie_accepted2@test.be
+Accept: application/json
+
+### 3. Accepted roomie of the other roomshare → 200, none of the tasks of tasktestroomshare, "roomies" = RoomieOther only
+GET {{baseUrl}}?roomieEmail=task_roomie_other@test.be
+Accept: application/json
+
+### 4. Email with spaces and uppercase → 200, same answer as request 1 (cleaned like the login)
+GET {{baseUrl}}?roomieEmail=%20%20TASK_ROOMIE_ACCEPTED1@test.be%20
+Accept: application/json
+
+### 5. Unknown extra parameter → 200, ignored (same answer as request 1)
+GET {{baseUrl}}?roomieEmail=task_roomie_accepted1@test.be&roomshareId=999
+Accept: application/json
+
+### 6. An owner → 403, "This type of user cannot do this action."
+GET {{baseUrl}}?roomieEmail=task_owner@test.be
+Accept: application/json
+
+### 7. A pending roomie → 403, "You must be an accepted member of a roomshare."
+GET {{baseUrl}}?roomieEmail=task_roomie_pending@test.be
+Accept: application/json
+
+### 8. A roomie without roomshare → 403, "You must be an accepted member of a roomshare."
+GET {{baseUrl}}?roomieEmail=task_roomie_none@test.be
+Accept: application/json
+
+### 9. Unknown email → 401, "Authentication required."
+GET {{baseUrl}}?roomieEmail=nobody@mail.be
+Accept: application/json
+
+### 10. Missing email → 400, "Email is required"
+GET {{baseUrl}}
+Accept: application/json
+
+### 11. Empty email → 400, "Email is required"
+GET {{baseUrl}}?roomieEmail=
+Accept: application/json
+
+### 12. Email with only spaces → 400, "Email is required"
+GET {{baseUrl}}?roomieEmail=%20%20%20
+Accept: application/json
+
+### 13. Wrong HTTP method → 405 (there is no PUT on /api/tasks)
+PUT {{baseUrl}}?roomieEmail=task_roomie_accepted1@test.be
+Content-Type: application/json
+
+{}
+
+### CORS preflight for a GET (what the browser sends)
+OPTIONS {{baseUrl}}
+Origin: http://127.0.0.1:5501
+Access-Control-Request-Method: GET

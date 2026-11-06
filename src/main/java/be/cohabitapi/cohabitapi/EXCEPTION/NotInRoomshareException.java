@@ -1,8 +1,7 @@
 package be.cohabitapi.cohabitapi.EXCEPTION;
 
-// This exception is used when a roomie has no roomshare
-// // or when the owner did not accept him yet
-// We do this because only an accepted member can see and add expenses
+// Thrown when a roomie has no roomshare or when the owner did not accept him yet
+// Only an accepted member can manage the tasks and the expenses
 // The API turns it into a 403
 public class NotInRoomshareException extends RuntimeException {
 

@@ -1,0 +1,255 @@
+# Base URL of the API (Tomcat Application context must be /CoHabitAPI)
+@baseUrl = http://localhost:8080/CoHabitAPI/api/tasks
+
+# Before running: run task-test-data.sql and copy the ids of its last SELECT here
+@ownerId = 349
+@accepted1Id = 350
+@accepted2Id = 351
+@pendingId = 352
+@otherRoomieId = 355
+
+### 1. Add OK with two roomies → 201, "status": "pending", 2 roomies with their names
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Sortir les poubelles",
+  "description": "PMC et ordures ménagères",
+  "dueDate": "2026-12-15",
+  "status": "pending",
+  "roomieIds": [{{accepted1Id}}, {{accepted2Id}}],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 2. Add OK with only the name → 201, description null, dueDate null, "status": "pending", roomies []
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Nettoyer la cuisine",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 3. Same roomie twice → 201 with only one roomie in the answer
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Faire les courses",
+  "roomieIds": [{{accepted2Id}}, {{accepted2Id}}],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 4. Status completed, with spaces and uppercase → 201, "status": "completed"
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Arroser les plantes",
+  "status": "  COMPLETED ",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 5. Name and description with spaces around → 201, trimmed in the answer
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "   Passer l'aspirateur   ",
+  "description": "   Salon et couloir   ",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 6. Missing name → 400, "The task name is required."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "description": "Pas de nom",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 7. Name with only spaces → 400, "The task name is required."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "     ",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 8. Name of 101 characters → 400, "The task name cannot be longer than 100 characters."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789X",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 9. Wrong date format → 400, "The due date must have the format YYYY-MM-DD."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Mauvaise date",
+  "dueDate": "15/12/2026",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 10. Date in the past → 400, "The due date cannot be in the past."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Trop tard",
+  "dueDate": "2020-01-01",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 11. Unknown status → 400, "Invalid status."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Statut bizarre",
+  "status": "done",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 12. Unknown roomie id → 400, "Unknown roomie."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Roomie inconnu",
+  "roomieIds": [999999],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 13. Id of the owner in roomieIds → 400, "Unknown roomie." (an owner is not a roomie)
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Owner assigne",
+  "roomieIds": [{{ownerId}}],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 14. Pending roomie in roomieIds → 400, "A task can only be assigned to a roomie of the roomshare."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Roomie en attente assigne",
+  "roomieIds": [{{pendingId}}],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 15. Roomie of the other roomshare in roomieIds → 400, "A task can only be assigned to a roomie of the roomshare."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Roomie d'une autre coloc",
+  "roomieIds": [{{otherRoomieId}}],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 16. An owner adds a task → 403, "This type of user cannot do this action."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Tache de l'owner",
+  "roomieEmail": "task_owner@test.be"
+}
+
+### 17. A pending roomie adds a task → 403, "You must be an accepted member of a roomshare."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Tache du roomie en attente",
+  "roomieEmail": "task_roomie_pending@test.be"
+}
+
+### 18. A roomie without roomshare adds a task → 403, "You must be an accepted member of a roomshare."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Tache du roomie sans coloc",
+  "roomieEmail": "task_roomie_none@test.be"
+}
+
+### 19. Unknown email → 401, "Authentication required."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Personne",
+  "roomieEmail": "nobody@mail.be"
+}
+
+### 20. Email with spaces and uppercase → 201 (cleaned like the login)
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Email en majuscules",
+  "roomieEmail": "  TASK_ROOMIE_ACCEPTED1@test.be "
+}
+
+### 21. Missing email → 400, "Email is required"
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Sans email"
+}
+
+### 22. Empty JSON object → 400, "Email is required"
+POST {{baseUrl}}
+Content-Type: application/json
+
+{}
+
+### 23. Broken JSON → 400, "JSON invalid."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{ "name": "Cassé",
+
+### 24. roomieIds with a wrong type → 400, "JSON invalid."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Mauvais type",
+  "roomieIds": "abc",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 25. Unknown extra field → 201 (ignored: the task stays in tasktestroomshare, not 999)
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Champ en trop",
+  "roomshareId": 999,
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 26. Wrong Content-Type → 415
+POST {{baseUrl}}
+Content-Type: text/plain
+
+hello
+
+### CORS preflight (what the browser sends)
+OPTIONS {{baseUrl}}
+Origin: http://127.0.0.1:5501
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: content-type

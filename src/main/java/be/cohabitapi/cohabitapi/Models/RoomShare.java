@@ -51,6 +51,12 @@ public class RoomShare {
     @OrderBy("idPerson") // Stable order: the split and the colors depend on it
     private List<Roomie> roomies = new ArrayList<>();
 
+    // Tasks live and die with their roomshare
+    // mappedBy is to say that the link is the roomshare attribute from Task
+    // cascade all and orphanremoval it's used when a roomshare is deleted their tasks are too.
+    @OneToMany(mappedBy = "roomshare", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Task> tasks = new ArrayList<>();
+
 
     // ------------------------- Getters and Setters --------------------------------------------------
 
@@ -97,6 +103,9 @@ public class RoomShare {
     public List<Roomie> getRoomies() {
         return roomies;
     }
+
+    // unmodifiablelist return a read only list so we can't clear the list passing trough getTask
+    public List<Task> getTasks() {return Collections.unmodifiableList(tasks); }
 
 
     // ------------------------- Constructors --------------------------------------------------

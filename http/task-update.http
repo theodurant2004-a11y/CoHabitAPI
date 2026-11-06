@@ -1,0 +1,430 @@
+# Base URL of the API (Tomcat Application context must be /CoHabitAPI)
+@baseUrl = http://localhost:8080/CoHabitAPI/api/tasks
+
+# Uses the test data of task-test-data.sql: copy the ids of its last SELECT here
+@ownerId = 349
+@accepted1Id = 350
+@accepted2Id = 351
+@pendingId = 352
+@otherRoomieId = 355
+
+# Run the two SETUP requests first: they create a task in each roomshare
+# and save its id in {{taskId}} and {{otherTaskId}} (the "> {% ... %}" part only saves the id, it checks nothing)
+
+
+# =====================================================================
+# SETUP
+# =====================================================================
+
+### SETUP 1. A task in tasktestroomshare → 201, its id is saved in {{taskId}}
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Tache a modifier",
+  "description": "Description de depart",
+  "dueDate": "2026-12-15",
+  "roomieIds": [{{accepted1Id}}],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+> {% client.global.set("taskId", response.body.task.id); %}
+
+### SETUP 2. A task in tasktestroomshare_other → 201, its id is saved in {{otherTaskId}}
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Tache de l'autre coloc",
+  "roomieEmail": "task_roomie_other@test.be"
+}
+
+> {% client.global.set("otherTaskId", response.body.task.id); %}
+
+
+# =====================================================================
+# UPDATE A TASK : PUT /api/tasks/{id}
+# =====================================================================
+
+### 1. Full update OK → 200, new name, description, date, "status": "completed", 2 roomies
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Tache modifiee",
+  "description": "Nouvelle description",
+  "dueDate": "2026-12-20",
+  "status": "completed",
+  "roomieIds": [{{accepted1Id}}, {{accepted2Id}}],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 2. Same date as before (2026-12-20) by the other accepted roomie → 200 (every roomie of the roomshare can update)
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Tache modifiee par accepted2",
+  "description": "Nouvelle description",
+  "dueDate": "2026-12-20",
+  "status": "pending",
+  "roomieIds": [{{accepted2Id}}],
+  "roomieEmail": "task_roomie_accepted2@test.be"
+}
+
+### 3. Remove description, date and roomies → 200, description null, dueDate null, roomies []
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Tache sans rien",
+  "description": null,
+  "dueDate": null,
+  "status": "pending",
+  "roomieIds": [],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 4. roomieIds not sent → 200, roomies [] (PUT replaces everything)
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Tache sans roomieIds",
+  "status": "pending",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 5. Spaces around the values → 200, trimmed in the answer, "status": "completed"
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "   Tache avec espaces   ",
+  "description": "   Description avec espaces   ",
+  "status": "  COMPLETED ",
+  "roomieIds": [{{accepted1Id}}],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 6. Unknown extra field → 200 (ignored: the task stays in tasktestroomshare)
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Champ en trop",
+  "status": "pending",
+  "roomshareId": 999,
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 7. Missing name → 400, "The task name is required."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "status": "pending",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 8. Name of 101 characters → 400, "The task name cannot be longer than 100 characters."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789X",
+  "status": "pending",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 9. Missing status → 400, "The status is required." (required for a PUT)
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Sans statut",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 10. Unknown status → 400, "Invalid status."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Statut bizarre",
+  "status": "done",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 11. New date in the past → 400, "The due date cannot be in the past."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Date passee",
+  "dueDate": "2020-01-01",
+  "status": "pending",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 12. Wrong date format → 400, "The due date must have the format YYYY-MM-DD."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Mauvaise date",
+  "dueDate": "20/12/2026",
+  "status": "pending",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 13. Unknown roomie id → 400, "Unknown roomie."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Roomie inconnu",
+  "status": "pending",
+  "roomieIds": [999999],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 14. Id of the owner in roomieIds → 400, "Unknown roomie."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Owner assigne",
+  "status": "pending",
+  "roomieIds": [{{ownerId}}],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 15. Pending roomie in roomieIds → 400, "A task can only be assigned to a roomie of the roomshare."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Roomie en attente assigne",
+  "status": "pending",
+  "roomieIds": [{{pendingId}}],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 16. Roomie of the other roomshare in roomieIds → 400, "A task can only be assigned to a roomie of the roomshare."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Roomie d'une autre coloc",
+  "status": "pending",
+  "roomieIds": [{{otherRoomieId}}],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 17. Task that does not exist → 404, "The received task does not exist."
+PUT {{baseUrl}}/999999
+Content-Type: application/json
+
+{
+  "name": "Introuvable",
+  "status": "pending",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 18. Task of the other roomshare → 404 (not 403: nobody learns that it exists)
+PUT {{baseUrl}}/{{otherTaskId}}
+Content-Type: application/json
+
+{
+  "name": "Pas ma coloc",
+  "status": "pending",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 19. Id that is not a number → 404 (answered by JAX-RS itself)
+PUT {{baseUrl}}/abc
+Content-Type: application/json
+
+{
+  "name": "Id texte",
+  "status": "pending",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 20. An owner → 403, "This type of user cannot do this action."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Par l'owner",
+  "status": "pending",
+  "roomieEmail": "task_owner@test.be"
+}
+
+### 21. A pending roomie → 403, "You must be an accepted member of a roomshare."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Par le roomie en attente",
+  "status": "pending",
+  "roomieEmail": "task_roomie_pending@test.be"
+}
+
+### 22. A roomie without roomshare → 403, "You must be an accepted member of a roomshare."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Par le roomie sans coloc",
+  "status": "pending",
+  "roomieEmail": "task_roomie_none@test.be"
+}
+
+### 23. Unknown email → 401, "Authentication required."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Personne",
+  "status": "pending",
+  "roomieEmail": "nobody@mail.be"
+}
+
+### 24. Missing email → 400, "Email is required"
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{
+  "name": "Sans email",
+  "status": "pending"
+}
+
+### 25. Broken JSON → 400, "JSON invalid."
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: application/json
+
+{ "name": "Cassé",
+
+### 26. Wrong Content-Type → 415
+PUT {{baseUrl}}/{{taskId}}
+Content-Type: text/plain
+
+hello
+
+
+# =====================================================================
+# CHECK / UNCHECK A TASK : PUT /api/tasks/{id}/status
+# =====================================================================
+
+### 27. Check the task → 200, "status": "completed", the other fields don't change
+PUT {{baseUrl}}/{{taskId}}/status
+Content-Type: application/json
+
+{
+  "status": "completed",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 28. Uncheck the task → 200, "status": "pending"
+PUT {{baseUrl}}/{{taskId}}/status
+Content-Type: application/json
+
+{
+  "status": "pending",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 29. Status with spaces and uppercase, by the other accepted roomie → 200, "status": "completed"
+PUT {{baseUrl}}/{{taskId}}/status
+Content-Type: application/json
+
+{
+  "status": "  COMPLETED ",
+  "roomieEmail": "task_roomie_accepted2@test.be"
+}
+
+### 30. Other fields sent → 200, they are ignored (the name does not change, only the status)
+PUT {{baseUrl}}/{{taskId}}/status
+Content-Type: application/json
+
+{
+  "status": "pending",
+  "name": "Ce nom ne doit pas etre pris",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 31. Missing status → 400, "The status is required."
+PUT {{baseUrl}}/{{taskId}}/status
+Content-Type: application/json
+
+{
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 32. Unknown status → 400, "Invalid status."
+PUT {{baseUrl}}/{{taskId}}/status
+Content-Type: application/json
+
+{
+  "status": "done",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 33. Task that does not exist → 404
+PUT {{baseUrl}}/999999/status
+Content-Type: application/json
+
+{
+  "status": "completed",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 34. Task of the other roomshare → 404
+PUT {{baseUrl}}/{{otherTaskId}}/status
+Content-Type: application/json
+
+{
+  "status": "completed",
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+### 35. An owner → 403
+PUT {{baseUrl}}/{{taskId}}/status
+Content-Type: application/json
+
+{
+  "status": "completed",
+  "roomieEmail": "task_owner@test.be"
+}
+
+### 36. A pending roomie → 403
+PUT {{baseUrl}}/{{taskId}}/status
+Content-Type: application/json
+
+{
+  "status": "completed",
+  "roomieEmail": "task_roomie_pending@test.be"
+}
+
+### 37. Unknown email → 401
+PUT {{baseUrl}}/{{taskId}}/status
+Content-Type: application/json
+
+{
+  "status": "completed",
+  "roomieEmail": "nobody@mail.be"
+}
+
+### 38. Empty JSON object → 400, "Email is required"
+PUT {{baseUrl}}/{{taskId}}/status
+Content-Type: application/json
+
+{}
+
+### CORS preflight for a PUT (what the browser sends)
+OPTIONS {{baseUrl}}/{{taskId}}
+Origin: http://127.0.0.1:5501
+Access-Control-Request-Method: PUT
+Access-Control-Request-Headers: content-type

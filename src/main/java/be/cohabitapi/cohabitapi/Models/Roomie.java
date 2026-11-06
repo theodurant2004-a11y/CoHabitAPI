@@ -3,10 +3,12 @@ package be.cohabitapi.cohabitapi.Models;
 import be.cohabitapi.cohabitapi.DAO.ExpenseDAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
+import be.cohabitapi.cohabitapi.DAO.TaskDAO;
 import be.cohabitapi.cohabitapi.EXCEPTION.AlreadyInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidInvitationKeyException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
+import be.cohabitapi.cohabitapi.EXCEPTION.TaskNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NoPendingRequestException;
 import be.cohabitapi.cohabitapi.EXCEPTION.JoinRequestNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.MemberNotFoundException;
@@ -16,6 +18,7 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -43,6 +46,12 @@ public class Roomie extends Person {
     @Column(name = "roomie_status", nullable = false)
     private MembershipStatus statusMember = MembershipStatus.NONE;
 
+    // The tasks of this roomie (association with Task in the class diagram)
+    // mappedBy: the Task_Roomie table is managed by the "roomies" attribute of Task, this side only reads it
+    // No cascade: it is an association, not a composition (a task does not live inside a roomie)
+    @ManyToMany(mappedBy = "roomies")
+    private Set<Task> tasks = new HashSet<>();
+
     // The expenses this roomie has to pay
     @OneToMany(mappedBy = "debtor")
     private List<Expense> expensesToPay = new ArrayList<>();
@@ -62,6 +71,11 @@ public class Roomie extends Person {
     // No setter for the status: it only changes through the methods
     public MembershipStatus getStatusMember() {
         return statusMember;
+    }
+
+    // Read only: a task is assigned with Task.assignRoomie (which checks the rules), never from here
+    public Set<Task> getTasks(){
+        return Collections.unmodifiableSet(tasks);
     }
 
     public List<Expense> getExpensesToPay() {
@@ -140,6 +154,38 @@ public class Roomie extends Person {
         return clean;
     }
 
+    // TASKS
+
+    // True if this roomie is an accepted member of this roomshare
+    // The roomie knows his status and his roomshare, so he answers himself (Task does not look inside him)
+    // We compare the ids: the two roomshares can be two different instances of the same roomshare
+    public boolean isAcceptedMemberOf(RoomShare roomshare) {
+        return roomshare != null
+                && this.statusMember == MembershipStatus.ACCEPTED
+                && this.roomshare != null
+                && this.roomshare.getId().equals(roomshare.getId());
+    }
+
+    // TASKS LIST : the tasks of my roomshare
+    public List<Task> findTasks(TaskDAO taskDAO) {
+        return taskDAO.findByRoomshare(roomshare);
+    }
+
+    // UPDATE / CHECK / DELETE : finds a task of my roomshare
+    // Does not exist, or is in another roomshare: same exception (404), so nobody learns that it exists elsewhere
+    public Task findTask(Integer taskId, TaskDAO taskDAO) {
+        Task task = taskDAO.findById(taskId);
+
+        if (task == null || !isAcceptedMemberOf(task.getRoomshare()))
+            throw new TaskNotFoundException();
+
+        return task;
+    }
+
+    //  EXPENSES
+
+    // Finds the accepted roomie behind this email, with his roomshare loaded
+    // Used for expenses and tasks
     public static Roomie findAcceptedMember(String email, PersonDAO personDAO, RoomShareDAO roomShareDAO) {
         String cleanEmail = normalizeEmail(email);
         Person person = Person.findByEmail(cleanEmail, personDAO);
