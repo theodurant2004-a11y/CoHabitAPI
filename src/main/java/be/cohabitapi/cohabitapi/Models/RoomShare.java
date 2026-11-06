@@ -1,8 +1,17 @@
 package be.cohabitapi.cohabitapi.Models;
 
+import static be.cohabitapi.cohabitapi.API.APIResponse.error;
+import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStringAttribute;
+
 import be.cohabitapi.cohabitapi.DAO.DAO;
+import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
+import be.cohabitapi.cohabitapi.EXCEPTION.NoItemInTheListException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotMemberOfRoomShareException;
+import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
+import jakarta.ws.rs.core.Response;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
@@ -14,11 +23,15 @@ public class RoomShare {
 
     // ------------------------- Attributes and JPA Annotations --------------------------------------------------
 
+    // @Id specifies a primary key
     @Id
+    // @GeneratedValue specifies the auto-increment constraint
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    // @Column specifies which column of the table is involved
     @Column(name = "roomshare_id")
     private Integer id;
 
+    // "length = ..." to match with the db
     @Column(name = "roomshare_invitation_key", length = 50, nullable = false)
     private String invitationKey;
 
@@ -28,8 +41,10 @@ public class RoomShare {
     @Column(name = "roomshare_creation_date", nullable = false)
     private LocalDate creationDate;
 
-    @ManyToOne
+    // Foreign key
+    @ManyToOne // Specifies the relation like "Many RoomShares may belong to One Owner"
     @JoinColumn(name = "user_id", nullable = false)
+    // Return the entire object, not only the id
     private Owner owner;
 
     @OneToMany(mappedBy = "roomshare")
@@ -80,6 +95,7 @@ public class RoomShare {
     public Owner getOwner() { return owner; }
 
     public void setOwner(Owner owner) {
+        // Checks and throws an exception if the reference is null
         Objects.requireNonNull(owner);
         this.owner = owner;
     }
@@ -102,6 +118,8 @@ public class RoomShare {
     public RoomShare(String key, String name, Owner owner) {
         setInvitationKey(key);
         setName(name);
+        // LocalDate is used to make the SQL DATE parse easy
+        // It's almost like a DateTime
         setCreationDate(LocalDate.now());
         setOwner(owner);
     }
@@ -109,28 +127,25 @@ public class RoomShare {
 
     // ------------------------- Utility methods --------------------------------------------------
 
-    // Trim any string attribute and checks if they are null, empty or upper than the max length
-    private static String normalizeStringAttribute(String attribute, String attributeName, int maxLength){
-        if (attribute == null)
-            throw new IllegalArgumentException("The " + attributeName + " cannot be null");
-
-        String trimmed = attribute.trim();
-
-        if (trimmed.isEmpty())
-            throw new IllegalArgumentException("The " + attributeName + " cannot be empty");
-        if (trimmed.length() > maxLength)
-            throw new IllegalArgumentException("The " + attributeName + " cannot be longer than " + maxLength + " characters");
-
-        return trimmed;
+    public static RoomShare findRoomShareByRoomie(PersonDAO personDAO, RoomShareDAO roomShareDAO, int userId)
+    {
+        Roomie roomie = Roomie.checkRightRoomie(personDAO, userId);
+        if (roomie.getStatusMember() != MembershipStatus.ACCEPTED) throw new NotMemberOfRoomShareException();
+        // We do not juste use roomie.getRoomShare(),
+        // because we're not sure that
+        // this is a whole object well-completed
+        // So, we regenerate it with findById()
+        return RoomShare.findById(roomShareDAO, roomie.getRoomshare().getId());
     }
 
-    // Generates an invitation key of 6 characters
+    // We create our own method to generate de invitation key
+    // We choose to have an invitation key of 6 characters
     public static String generateInvitationKey(RoomShareDAO dao) {
         String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         Random rnd = new SecureRandom();
         String generatedKey;
 
-        // The key must be unique in the db
+        // With this loop, the unique constraint is protected from duplicates
         do {
             StringBuilder sb = new StringBuilder(6);
             for (int i = 0; i < 6; i++) {
@@ -182,4 +197,43 @@ public class RoomShare {
     // ------------------------- DAO methods --------------------------------------------------
 
     public void create(DAO<RoomShare> dao) { dao.create(this); }
+
+    // ------------------------- MEMBERS OF A ROOMSHARE --------------------------------------------------
+
+    // The whole "see the members" use case. The API only calls this method
+    // It returns the members of the roomshare of the user who asks: the owner first, then the accepted roomies
+    // The owner and the roomies can both use it (the user who asks is in the list too)
+    public static List<Person> findMembers(String email, PersonDAO personDAO) {
+        // 1. Clean the email (IllegalArgumentException = 400 if it is empty) and find the user
+        Person user = Person.findByEmail(Person.normalizeEmail(email), personDAO);
+
+        // Nobody has this email (the API answers 401)
+        if (user == null)
+            throw new UserNotFoundException();
+
+        // 2. Find the owner of the roomshare
+        Owner owner;
+        if (user instanceof Owner) {
+            // The user is the owner himself
+            owner = (Owner) user;
+        } else {
+            // The user is a roomie: he sees the members only if the owner accepted him (403)
+            // A pending roomie is not a member yet, so he cannot see the others
+            Roomie roomie = (Roomie) user;
+            if (roomie.getStatusMember() != MembershipStatus.ACCEPTED)
+                throw new NotInRoomshareException();
+
+            // The roomshare and its owner are @ManyToOne, so they were loaded with the roomie (EAGER)
+            owner = roomie.getRoomshare().getOwner();
+        }
+
+        // 3. Build the list: the owner first, then the accepted roomies given by the DAO
+        List<Person> members = new ArrayList<>();
+        members.add(owner);
+        members.addAll(personDAO.findAcceptedRoomiesByOwner(owner.getIdPerson()));
+
+        return members;
+    }
+
+    public static RoomShare findById(RoomShareDAO dao, Integer id) { return dao.findById(id); }
 }

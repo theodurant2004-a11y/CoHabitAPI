@@ -1,7 +1,7 @@
 package be.cohabitapi.cohabitapi.Models;
 
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
-import be.cohabitapi.cohabitapi.EXCEPTION.UnauthorizedUserException;
+import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
 
@@ -32,7 +32,7 @@ public class Owner extends Person{
 
         // Throw a specific exception if the user role is not "owner"
         if(!(owner instanceof Owner))
-            throw new UnauthorizedUserException();
+            throw new ForbiddenRoleException();
 
         return (Owner)owner;
     }

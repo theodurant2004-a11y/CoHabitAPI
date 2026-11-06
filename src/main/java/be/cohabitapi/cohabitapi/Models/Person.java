@@ -191,6 +191,8 @@ public abstract class Person {
         return dao.findByEmail(email);
     }
 
+    public static Person findById(PersonDAO dao, int id) { return dao.findById(id); }
+
     public static Person login(String email, String password, PersonDAO dao){
 
         String cleanEmail;

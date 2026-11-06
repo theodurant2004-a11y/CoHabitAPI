@@ -1,0 +1,8 @@
+POST http://localhost:8080/CoHabitAPI/api/users/382/shopping-items
+Content-Type: application/json
+
+{
+  "name": "Peluche",
+  "category": "Medical",
+  "quantity": "3"
+}

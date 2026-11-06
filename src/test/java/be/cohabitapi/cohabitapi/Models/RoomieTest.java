@@ -6,6 +6,10 @@ import be.cohabitapi.cohabitapi.EXCEPTION.AlreadyInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidInvitationKeyException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
+import be.cohabitapi.cohabitapi.EXCEPTION.JoinRequestNotFoundException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NoPendingRequestException;
+import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
+import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,6 +18,9 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Collections;
+import java.util.List;
 
 // assertEquals, assertSame, assertNull, assertThrows : the "check" methods of JUnit
 import static org.junit.jupiter.api.Assertions.*;
@@ -37,6 +44,7 @@ class RoomieTest {
     private static final String EMAIL = "bob@test.be";
     private static final String PASSWORD = "Test1234!"; // Strong enough for the Person rules
     private static final String KEY = "ABC123";          // A valid invitation key (6 letters or digits)
+    private static final String OWNER_EMAIL = "alice@test.be"; // the email of the owner built by owner()
 
     // @Mock: Mockito creates a fake PersonDAO and nothing is saved
     @Mock
@@ -295,5 +303,324 @@ class RoomieTest {
         assertThrows(AlreadyInRoomshareException.class,
                 () -> Roomie.requestToJoin(EMAIL, KEY, personDAO, roomShareDAO));
         verify(personDAO, never()).update(any());
+    }
+
+    // ACCEPT A ROOMIE
+
+    // small methods for these tests
+    // In the db every person has an id, and belongsToOwner compares the ids
+    // So here we give an id to the owner (1) and to the roomie (2)
+    private Owner ownerWithId() {
+        Owner owner = owner();
+        owner.setIdPerson(1);
+        return owner;
+    }
+
+    // A roomie (id 2) who sent a join request to the roomshare of this owner: he is PENDING
+    private Roomie pendingRoomie(Owner owner) {
+        Roomie roomie = roomie();
+        roomie.setIdPerson(2);
+        roomie.sendJoinRequest(new RoomShare(KEY, "Belleville", owner));
+        return roomie;
+    }
+
+    // Another owner (id 99), for the security tests
+    private Owner otherOwner() {
+        Owner other = new Owner("Smith", "Carl", "carl@test.be", PASSWORD);
+        other.setIdPerson(99);
+        return other;
+    }
+
+    // acceptRequest
+    // These tests do not need any mock: the methods only change the roomie in memory
+
+    @Test
+    @DisplayName("acceptRequest: pending roomie -> ACCEPTED and stays in the roomshare")
+    void acceptRequest_pending_becomesAccepted() {
+        // Arrange: a roomie who is waiting
+        Roomie roomie = pendingRoomie(ownerWithId());
+        RoomShare roomshare = roomie.getRoomshare();
+
+        // Act: the owner accepts
+        roomie.acceptRequest();
+
+        // Assert: the status is ACCEPTED and he is still in the same roomshare
+        assertSame(MembershipStatus.ACCEPTED, roomie.getStatusMember());
+        assertSame(roomshare, roomie.getRoomshare());
+    }
+
+    // refuseRequest
+    @Test
+    @DisplayName("refuseRequest: pending roomie -> NONE and no roomshare anymore")
+    void refuseRequest_pending_goesBackToNone() {
+        // Arrange
+        Roomie roomie = pendingRoomie(ownerWithId());
+
+        // Act: the owner refuses
+        roomie.refuseRequest();
+
+        // Assert: back to the start
+        assertSame(MembershipStatus.NONE, roomie.getStatusMember());
+        assertNull(roomie.getRoomshare());
+    }
+
+    @Test
+    @DisplayName("refuseRequest then sendJoinRequest: a refused roomie can ask again")
+    void refuseRequest_thenNewRequest_isAllowed() {
+        // Arrange: the request is refused
+        Roomie roomie = pendingRoomie(ownerWithId());
+        roomie.refuseRequest();
+
+        // Act: the roomie asks again
+        roomie.sendJoinRequest(roomshare());
+
+        // Assert: he is waiting again
+        assertSame(MembershipStatus.PENDING, roomie.getStatusMember());
+    }
+
+    @Test
+    @DisplayName("accept/refuse: already accepted -> NoPendingRequestException")
+    void answer_alreadyAccepted_throws() {
+        // Arrange: the roomie is already accepted
+        Roomie roomie = pendingRoomie(ownerWithId());
+        roomie.acceptRequest();
+
+        // Act + Assert: a second answer is refused
+        assertThrows(NoPendingRequestException.class, () -> roomie.acceptRequest());
+        assertThrows(NoPendingRequestException.class, () -> roomie.refuseRequest());
+        // Nothing changed
+        assertSame(MembershipStatus.ACCEPTED, roomie.getStatusMember());
+    }
+
+    @Test
+    @DisplayName("accept/refuse: roomie without request -> NoPendingRequestException")
+    void answer_noRequest_throws() {
+        // Arrange: a new roomie, status NONE and no roomshare
+        Roomie roomie = roomie();
+
+        // Act + Assert: there is nothing to answer
+        // roomie::acceptRequest is a short way to write () -> roomie.acceptRequest()
+        assertThrows(NoPendingRequestException.class, roomie::acceptRequest);
+        assertThrows(NoPendingRequestException.class, roomie::refuseRequest);
+    }
+
+    // belongsToOwner
+
+    @Test
+    @DisplayName("belongsToOwner: same id but another object -> true")
+    void belongsToOwner_sameId_true() {
+        // Arrange: in the real app the owner is loaded by another EntityManager:
+        // it is another object in memory, but with the same id
+        Roomie roomie = pendingRoomie(ownerWithId());
+        Owner sameOwner = ownerWithId();
+
+        // Act + Assert
+        assertTrue(roomie.belongsToOwner(sameOwner));
+    }
+
+    @Test
+    @DisplayName("belongsToOwner: another owner, null or no roomshare -> false")
+    void belongsToOwner_otherOwner_false() {
+        Roomie roomie = pendingRoomie(ownerWithId());
+
+        // Another owner
+        assertFalse(roomie.belongsToOwner(otherOwner()));
+        // No owner at all
+        assertFalse(roomie.belongsToOwner(null));
+        // A roomie without roomshare does not belong to anybody
+        assertFalse(roomie().belongsToOwner(ownerWithId()));
+    }
+
+    // answerJoinRequest (the whole use case)
+    // Here we need the fake DAO: we tell it what to answer with when(...).thenReturn(...)
+
+    @Test
+    @DisplayName("answerJoinRequest: accept -> ACCEPTED and saved")
+    void answerJoinRequest_accept_savesAcceptedRoomie() {
+        // Arrange: the fake DAO knows the owner and the roomie
+        Owner owner = ownerWithId();
+        Roomie roomie = pendingRoomie(owner);
+        when(personDAO.findByEmail(OWNER_EMAIL)).thenReturn(owner);
+        when(personDAO.findById(2)).thenReturn(roomie);
+
+        // Act: email with spaces and uppercase, the model cleans it
+        Roomie result = Roomie.answerJoinRequest("  ALICE@test.be ", 2, true, personDAO);
+
+        // Assert: it is the same roomie, he is accepted and saved
+        assertSame(roomie, result);
+        assertSame(MembershipStatus.ACCEPTED, result.getStatusMember());
+        verify(personDAO).update(roomie);
+    }
+
+    @Test
+    @DisplayName("answerJoinRequest: refuse -> NONE, no roomshare and saved")
+    void answerJoinRequest_refuse_savesRoomieWithoutRoomshare() {
+        // Arrange
+        Owner owner = ownerWithId();
+        Roomie roomie = pendingRoomie(owner);
+        when(personDAO.findByEmail(OWNER_EMAIL)).thenReturn(owner);
+        when(personDAO.findById(2)).thenReturn(roomie);
+
+        // Act
+        Roomie result = Roomie.answerJoinRequest(OWNER_EMAIL, 2, false, personDAO);
+
+        // Assert
+        assertSame(MembershipStatus.NONE, result.getStatusMember());
+        assertNull(result.getRoomshare());
+        verify(personDAO).update(roomie);
+    }
+
+    @Test
+    @DisplayName("answerJoinRequest: no answer (null) -> IllegalArgumentException, db never used")
+    void answerJoinRequest_missingAnswer_throws() {
+        // Act + Assert
+        assertThrows(IllegalArgumentException.class,
+                () -> Roomie.answerJoinRequest(OWNER_EMAIL, 2, null, personDAO));
+
+        // The DAO was never called: the inputs are checked first
+        verifyNoInteractions(personDAO);
+    }
+
+    @Test
+    @DisplayName("answerJoinRequest: no roomie id -> IllegalArgumentException, db never used")
+    void answerJoinRequest_missingRoomieId_throws() {
+        assertThrows(IllegalArgumentException.class,
+                () -> Roomie.answerJoinRequest(OWNER_EMAIL, null, true, personDAO));
+
+        verifyNoInteractions(personDAO);
+    }
+
+    @Test
+    @DisplayName("answerJoinRequest: unknown owner -> UserNotFoundException")
+    void answerJoinRequest_unknownOwner_throws() {
+        // Arrange: nobody has this email
+        when(personDAO.findByEmail("nobody@test.be")).thenReturn(null);
+
+        // Act + Assert: the API turns it into a 401
+        assertThrows(UserNotFoundException.class,
+                () -> Roomie.answerJoinRequest("nobody@test.be", 2, true, personDAO));
+
+        verify(personDAO, never()).update(any());
+    }
+
+    @Test
+    @DisplayName("answerJoinRequest: a roomie tries to answer -> ForbiddenRoleException")
+    void answerJoinRequest_roomieInsteadOfOwner_throws() {
+        // Arrange: the email is the one of a roomie
+        Roomie roomie = pendingRoomie(ownerWithId());
+        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie);
+
+        // Act + Assert: the API turns it into a 403
+        assertThrows(ForbiddenRoleException.class,
+                () -> Roomie.answerJoinRequest(EMAIL, 2, true, personDAO));
+
+        // Nothing changed and nothing is saved
+        assertSame(MembershipStatus.PENDING, roomie.getStatusMember());
+        verify(personDAO, never()).update(any());
+    }
+
+    @Test
+    @DisplayName("answerJoinRequest: unknown roomie id -> JoinRequestNotFoundException")
+    void answerJoinRequest_unknownRoomie_throws() {
+        // Arrange: nobody has the id 42
+        when(personDAO.findByEmail(OWNER_EMAIL)).thenReturn(ownerWithId());
+        when(personDAO.findById(42)).thenReturn(null);
+
+        // Act + Assert: the API turns it into a 404
+        assertThrows(JoinRequestNotFoundException.class,
+                () -> Roomie.answerJoinRequest(OWNER_EMAIL, 42, true, personDAO));
+
+        verify(personDAO, never()).update(any());
+    }
+
+    @Test
+    @DisplayName("answerJoinRequest: the id is an owner -> JoinRequestNotFoundException")
+    void answerJoinRequest_idOfAnOwner_throws() {
+        // Arrange: the id 1 is the owner himself, not a roomie
+        Owner owner = ownerWithId();
+        when(personDAO.findByEmail(OWNER_EMAIL)).thenReturn(owner);
+        when(personDAO.findById(1)).thenReturn(owner);
+
+        // Act + Assert
+        assertThrows(JoinRequestNotFoundException.class,
+                () -> Roomie.answerJoinRequest(OWNER_EMAIL, 1, true, personDAO));
+    }
+
+    @Test
+    @DisplayName("answerJoinRequest: roomshare of another owner -> JoinRequestNotFoundException")
+    void answerJoinRequest_roomshareOfAnotherOwner_throws() {
+        // Arrange: Carl tries to accept Bob, but Bob asked to join the roomshare of Alice
+        Roomie roomie = pendingRoomie(ownerWithId());
+        when(personDAO.findByEmail("carl@test.be")).thenReturn(otherOwner());
+        when(personDAO.findById(2)).thenReturn(roomie);
+
+        // Act + Assert: the security test, the API turns it into a 404
+        assertThrows(JoinRequestNotFoundException.class,
+                () -> Roomie.answerJoinRequest("carl@test.be", 2, true, personDAO));
+
+        // The other owner changed nothing
+        assertSame(MembershipStatus.PENDING, roomie.getStatusMember());
+        verify(personDAO, never()).update(any());
+    }
+
+    @Test
+    @DisplayName("answerJoinRequest: request already answered -> NoPendingRequestException")
+    void answerJoinRequest_alreadyAnswered_throws() {
+        // Arrange: Bob is already accepted
+        Owner owner = ownerWithId();
+        Roomie roomie = pendingRoomie(owner);
+        roomie.acceptRequest();
+        when(personDAO.findByEmail(OWNER_EMAIL)).thenReturn(owner);
+        when(personDAO.findById(2)).thenReturn(roomie);
+
+        // Act + Assert: the API turns it into a 409
+        assertThrows(NoPendingRequestException.class,
+                () -> Roomie.answerJoinRequest(OWNER_EMAIL, 2, false, personDAO));
+
+        verify(personDAO, never()).update(any());
+    }
+
+    // findPendingRequests
+
+    @Test
+    @DisplayName("findPendingRequests: owner -> the list given by the DAO")
+    void findPendingRequests_owner_returnsTheList() {
+        // Arrange: the DAO finds Bob in the requests of Alice (id 1)
+        Owner owner = ownerWithId();
+        Roomie roomie = pendingRoomie(owner);
+        when(personDAO.findByEmail(OWNER_EMAIL)).thenReturn(owner);
+        when(personDAO.findPendingRoomiesByOwner(1)).thenReturn(List.of(roomie));
+
+        // Act
+        List<Roomie> result = Roomie.findPendingRequests(OWNER_EMAIL, personDAO);
+
+        // Assert: one request, and it is Bob
+        assertEquals(1, result.size());
+        assertSame(roomie, result.get(0));
+    }
+
+    @Test
+    @DisplayName("findPendingRequests: no request -> empty list")
+    void findPendingRequests_noRequest_returnsEmptyList() {
+        // Arrange: the DAO finds nothing
+        when(personDAO.findByEmail(OWNER_EMAIL)).thenReturn(ownerWithId());
+        when(personDAO.findPendingRoomiesByOwner(1)).thenReturn(Collections.emptyList());
+
+        // Act + Assert: an empty list, not an error
+        assertTrue(Roomie.findPendingRequests(OWNER_EMAIL, personDAO).isEmpty());
+    }
+
+    @Test
+    @DisplayName("findPendingRequests: a roomie -> ForbiddenRoleException")
+    void findPendingRequests_roomie_throws() {
+        // Arrange: the email is the one of a roomie
+        when(personDAO.findByEmail(EMAIL)).thenReturn(roomie());
+
+        // Act + Assert
+        assertThrows(ForbiddenRoleException.class,
+                () -> Roomie.findPendingRequests(EMAIL, personDAO));
+
+        // The list was never asked to the db
+        verify(personDAO, never()).findPendingRoomiesByOwner(any());
     }
 }
