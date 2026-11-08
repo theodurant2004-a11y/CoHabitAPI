@@ -138,4 +138,11 @@ public class Expense {
         setCreditor(creditor);
         setSettled(false);
     }
+
+    // Marks this debt as paid. A settled expense cannot be settled again
+    public void settle() {
+        if (settled)
+            throw new IllegalArgumentException("This expense is already settled.");
+        settled = true;
+    }
 }
