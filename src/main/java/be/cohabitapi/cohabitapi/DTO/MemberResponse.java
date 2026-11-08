@@ -5,15 +5,13 @@ public class MemberResponse {
 
     private Integer id;
     private String name;
-    private String color;
 
     public MemberResponse() {
     }
 
-    public MemberResponse(Integer id, String name, String color) {
+    public MemberResponse(Integer id, String name) {
         this.id = id;
         this.name = name;
-        this.color = color;
     }
 
     public Integer getId() {
@@ -32,11 +30,4 @@ public class MemberResponse {
         this.name = name;
     }
 
-    public String getColor() {
-        return color;
-    }
-
-    public void setColor(String color) {
-        this.color = color;
-    }
 }

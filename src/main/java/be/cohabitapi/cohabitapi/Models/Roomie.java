@@ -34,9 +34,6 @@ import java.util.Set;
 @PrimaryKeyJoinColumn(name = "user_id", referencedColumnName = "user_id")
 public class Roomie extends Person {
 
-    // The colors given to the roomies, in the order of the list
-    private static final String[] COLORS = {"#c17f2e", "#2e8b57", "#6a5acd", "#d1495b", "#00798c"};
-
     // ------------------------- Attributes and JPA Annotations --------------------------------------------------
 
     @ManyToOne
@@ -348,15 +345,6 @@ public class Roomie extends Person {
         // The expense changes its own status, then we save it
         expense.settle();
         expenseDAO.update(expense);
-    }
-
-    public String chooseColor() {
-        int position = roomshare.getAcceptedRoomies().indexOf(this);
-
-        if (position < 0)
-            position = 0;
-
-        return COLORS[position % COLORS.length];
     }
 
     public List<Refund> suggestRefunds() {

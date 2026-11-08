@@ -499,12 +499,6 @@ class RoomieExpenseTest {
         assertEquals(0, me.calculatePercent());
     }
 
-    @Test
-    void chooseColor_eachRoomieOfTheListHasHisOwnColor() {
-        assertNotEquals(me.chooseColor(), second.chooseColor());
-        assertNotEquals(second.chooseColor(), third.chooseColor());
-    }
-
 
     // ------------------------- Refunds --------------------------------------------------
 

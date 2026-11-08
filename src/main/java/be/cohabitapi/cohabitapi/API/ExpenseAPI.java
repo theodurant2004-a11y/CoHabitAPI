@@ -78,7 +78,7 @@ public class ExpenseAPI {
         try {
             List<CategoryResponse> categories = new ArrayList<>();
             for (ExpenseCategory category : ExpenseCategory.values()) {
-                categories.add(new CategoryResponse(category.getCode(), category.getLabel(), category.getIcon()));
+                categories.add(new CategoryResponse(category.getCode(), category.getLabel()));
             }
 
             return Response.ok(categories).build();
@@ -172,11 +172,10 @@ public class ExpenseAPI {
         List<BalanceResponse> balanceList = new ArrayList<>();
 
         for (Roomie roomie : me.getRoomshare().getAcceptedRoomies()) {
-            String color = roomie.chooseColor();
 
-            members.add(new MemberResponse(roomie.getIdPerson(), roomie.getFullName(), color));
+            members.add(new MemberResponse(roomie.getIdPerson(), roomie.getFullName()));
             balanceList.add(new BalanceResponse(
-                    roomie.getFullName(), color, roomie.calculateBalance(), roomie.calculatePercent()));
+                    roomie.getFullName(), roomie.calculateBalance(), roomie.calculatePercent()));
         }
 
         List<ExpenseLineResponse> expenses = new ArrayList<>();
@@ -192,7 +191,7 @@ public class ExpenseAPI {
                     expense.getDebtor().getFullName(),
                     creditor == null ? null : creditor.getIdPerson(),
                     creditor == null ? "" : creditor.getFullName(),
-                    expense.getCategory().getIcon(),
+                    expense.getCategory().getCode(),
                     expense.isSettled()));
         }
 
