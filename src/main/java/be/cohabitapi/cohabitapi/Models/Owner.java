@@ -4,6 +4,7 @@ import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import jakarta.persistence.*;
 
 @Entity
@@ -42,6 +43,19 @@ public class Owner extends Person{
     // The relation owner -> roomshare is only stored on the roomshare side, so we ask the DAO
     public RoomShare findRoomshare(RoomShareDAO dao) {
         return dao.findByOwner(this);
+    }
+
+    // CALENDAR : the roomshare this owner created loaded with its events
+    // The owner has no link to his roomshare (it is only stored on the roomshare side) so we need to ask the DAO
+    @Override
+    public RoomShare findRoomshareWithEvents(RoomShareDAO dao) {
+        RoomShare roomshare = dao.findByOwner(this);
+
+        // if the owner has not created his roomshare yet he has no calendar
+        if (roomshare == null)
+            throw new NotInRoomshareException();
+
+        return roomshare;
     }
 
     // An owner never owes money, so his balance is only what he has to receive

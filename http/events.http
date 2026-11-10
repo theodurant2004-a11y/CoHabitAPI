@@ -1,0 +1,394 @@
+# Base URL of the API (Tomcat Application context must be /CoHabitAPI)
+@baseUrl = http://localhost:8080/CoHabitAPI/api/events
+
+# Same test data as task.http (task-test-data.sql): only the emails are needed here, no ids
+# tasktestroomshare       : owner, accepted1, accepted2, pending
+# tasktestroomshare_other : owner_other, roomie_other
+# The owner AND the accepted roomies can read and add events (the JSON field is called roomieEmail for both)
+# A GET has no body: the email is sent in the URL (?email=...)
+# Run the cases from top to bottom: cases 2 to 9 create the events that cases 10 to 18 read
+# To start again from zero (in Oracle): DELETE FROM Event;  then COMMIT;
+@owner = task_owner@test.be
+@roomie1 = task_roomie_accepted1@test.be
+@roomie2 = task_roomie_accepted2@test.be
+@pending = task_roomie_pending@test.be
+@noRoomshare = task_roomie_none@test.be
+@otherRoomie = task_roomie_other@test.be
+
+### 1. Types for the buttons of the pop up → 200, 5 types in this order: social, meeting, visit, task, other (each with "code" and "label")
+GET {{baseUrl}}/types
+Accept: application/json
+
+### 2. A roomie adds a complete event → 201, {"event": {...}} with an id, "date": "2026-11-14", "startTime": "19:00", "endTime": "22:00", "type": "social"
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Soirée pizza",
+  "description": "Chacun apporte une pizza",
+  "date": "2026-11-14",
+  "startTime": "19:00",
+  "endTime": "22:00",
+  "type": "social",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 3. The owner adds an event → 201 (the owner is a member of the roomshare too)
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Réunion de la coloc",
+  "description": "Budget et règles de vie",
+  "date": "2026-11-20",
+  "startTime": "18:30",
+  "endTime": "19:30",
+  "type": "meeting",
+  "roomieEmail": "{{owner}}"
+}
+
+### 4. Only the required fields (title, date, type) → 201, "description": null, "startTime": null, "endTime": null
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Visite du plombier",
+  "date": "2026-11-17",
+  "type": "visit",
+  "roomieEmail": "{{roomie2}}"
+}
+
+### 5. Spaces around the texts, a time with seconds, a type in capital letters → 201, title and description trimmed, "startTime": "10:00" (seconds cut), "type": "task"
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "   Ménage de printemps   ",
+  "description": "   Tout le monde participe   ",
+  "date": "2026-11-14",
+  "startTime": "10:00:45",
+  "endTime": "12:00",
+  "type": "  TASK ",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 6. What the front sends when the user chose no time and no description (empty texts) → 201, "description": null, "startTime": null, "endTime": null
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Fête d'anniversaire",
+  "description": "",
+  "date": "2026-11-25",
+  "startTime": "",
+  "endTime": "",
+  "type": "other",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 7. Last day of the month → 201 (it must be in the November list of case 10)
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Paiement du loyer",
+  "date": "2026-11-30",
+  "type": "task",
+  "roomieEmail": "{{owner}}"
+}
+
+### 8. First day of the next month → 201 (it must NOT be in the November list of case 10)
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Marché de Noël",
+  "date": "2026-12-01",
+  "type": "social",
+  "roomieEmail": "{{roomie2}}"
+}
+
+### 9. Last day of the previous month → 201 (it must NOT be in the November list of case 10)
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Soirée Halloween",
+  "date": "2026-10-31",
+  "type": "social",
+  "roomieEmail": "{{roomie2}}"
+}
+
+### 10. List of the month (what the calendar sends) → 200, 6 events
+# In this order (sorted by date, then by id): Soirée pizza and Ménage de printemps (14/11), Visite du plombier (17/11),
+# Réunion de la coloc (20/11), Fête d'anniversaire (25/11), Paiement du loyer (30/11)
+# NOT in the list: Soirée Halloween (31/10) and Marché de Noël (01/12)
+GET {{baseUrl}}?email={{roomie1}}&from=2026-11-01&to=2026-11-30
+Accept: application/json
+
+### 11. List from a date, no end (what the home card sends) → 200, 7 events: the 6 of case 10 + Marché de Noël (not Halloween, it is before the 10th)
+GET {{baseUrl}}?email={{roomie1}}&from=2026-11-10
+Accept: application/json
+
+### 12. The other accepted roomie of the same roomshare → 200, exactly the same answer as case 10 (the calendar is shared)
+GET {{baseUrl}}?email={{roomie2}}&from=2026-11-01&to=2026-11-30
+Accept: application/json
+
+### 13. The owner → 200, exactly the same answer as case 10 (the owner and the roomies find their roomshare in two different ways)
+GET {{baseUrl}}?email={{owner}}&from=2026-11-01&to=2026-11-30
+Accept: application/json
+
+### 14. A roomie of the other roomshare → 200, [] (he does not see the events of tasktestroomshare)
+GET {{baseUrl}}?email={{otherRoomie}}&from=2026-11-01&to=2026-11-30
+Accept: application/json
+
+### 15. The two limits are included: from = to = 2026-11-14 → 200, 2 events (Soirée pizza, then Ménage de printemps)
+GET {{baseUrl}}?email={{roomie1}}&from=2026-11-14&to=2026-11-14
+Accept: application/json
+
+### 16. A period without event → 200, []
+GET {{baseUrl}}?email={{roomie1}}&from=2027-01-01&to=2027-01-31
+Accept: application/json
+
+### 17. Email with spaces and uppercase → 200, same answer as case 10 (cleaned like the login)
+GET {{baseUrl}}?email=%20%20TASK_ROOMIE_ACCEPTED1@test.be%20&from=2026-11-01&to=2026-11-30
+Accept: application/json
+
+### 18. Empty "to" → 200, same answer as case 11 (an empty end date means no end)
+GET {{baseUrl}}?email={{roomie1}}&from=2026-11-10&to=
+Accept: application/json
+
+### 19. Missing "from" → 400, "The start date is required."
+GET {{baseUrl}}?email={{roomie1}}&to=2026-11-30
+Accept: application/json
+
+### 20. "from" with a wrong format → 400, "The start date must have the format YYYY-MM-DD."
+GET {{baseUrl}}?email={{roomie1}}&from=14-11-2026
+Accept: application/json
+
+### 21. "to" with a wrong format → 400, "The end date must have the format YYYY-MM-DD."
+GET {{baseUrl}}?email={{roomie1}}&from=2026-11-01&to=demain
+Accept: application/json
+
+### 22. "to" before "from" → 400, "The end date cannot be before the start date."
+GET {{baseUrl}}?email={{roomie1}}&from=2026-11-30&to=2026-11-01
+Accept: application/json
+
+### 23. Missing email → 400, "Email is required"
+GET {{baseUrl}}?from=2026-11-01&to=2026-11-30
+Accept: application/json
+
+### 24. Unknown email → 401, "The received user does not exist"
+GET {{baseUrl}}?email=nobody@mail.be&from=2026-11-01&to=2026-11-30
+Accept: application/json
+
+### 25. A pending roomie → 403, "You must be an accepted member of a roomshare."
+GET {{baseUrl}}?email={{pending}}&from=2026-11-01&to=2026-11-30
+Accept: application/json
+
+### 26. A roomie without roomshare → 403, "You must be an accepted member of a roomshare."
+GET {{baseUrl}}?email={{noRoomshare}}&from=2026-11-01&to=2026-11-30
+Accept: application/json
+
+### 27. Missing title → 400, "The event title is required."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "date": "2026-11-14",
+  "type": "social",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 28. Title longer than 100 characters (here 121) → 400, "The event title cannot be longer than 100 characters."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789X",
+  "date": "2026-11-14",
+  "type": "social",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 29. Description longer than 255 characters (here 300) → 400, "The event description cannot be longer than 255 characters."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Description trop longue",
+  "description": "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+  "date": "2026-11-14",
+  "type": "social",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 30. Missing date → 400, "The event date is required."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Sans date",
+  "type": "social",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 31. Wrong date format → 400, "The event date must have the format YYYY-MM-DD."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Mauvaise date",
+  "date": "14/11/2026",
+  "type": "social",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 32. A date that does not exist → 400, "The event date must have the format YYYY-MM-DD."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Le 30 février",
+  "date": "2026-02-30",
+  "type": "social",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 33. Wrong time format → 400, "The time must have the format HH:MM."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Mauvaise heure",
+  "date": "2026-11-14",
+  "startTime": "7pm",
+  "type": "social",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 34. End before the start → 400, "The end must be after the start."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Fin avant le début",
+  "date": "2026-11-14",
+  "startTime": "20:00",
+  "endTime": "19:00",
+  "type": "social",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 35. End equal to the start → 400, "The end must be after the start."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Fin égale au début",
+  "date": "2026-11-14",
+  "startTime": "20:00",
+  "endTime": "20:00",
+  "type": "social",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 36. Missing type → 400, "The event type is required."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Sans type",
+  "date": "2026-11-14",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 37. Unknown type → 400, "Invalid event type."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Type bizarre",
+  "date": "2026-11-14",
+  "type": "party",
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 38. Missing email → 400, "Email is required"
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Sans email",
+  "date": "2026-11-14",
+  "type": "social"
+}
+
+### 39. Unknown email → 401, "The received user does not exist"
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Personne",
+  "date": "2026-11-14",
+  "type": "social",
+  "roomieEmail": "nobody@mail.be"
+}
+
+### 40. A pending roomie adds an event → 403, "You must be an accepted member of a roomshare."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Event du roomie en attente",
+  "date": "2026-11-14",
+  "type": "social",
+  "roomieEmail": "{{pending}}"
+}
+
+### 41. A roomie without roomshare adds an event → 403, "You must be an accepted member of a roomshare."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Event du roomie sans coloc",
+  "date": "2026-11-14",
+  "type": "social",
+  "roomieEmail": "{{noRoomshare}}"
+}
+
+### 42. Broken JSON → 400, "JSON invalid."
+POST {{baseUrl}}
+Content-Type: application/json
+
+{ "title": "Cassé",
+
+### 43. Unknown extra field → 201 (ignored: the event is created in the roomshare of the caller, not in 999)
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Champ en trop",
+  "date": "2027-03-01",
+  "type": "other",
+  "roomshareId": 999,
+  "roomieEmail": "{{roomie1}}"
+}
+
+### 44. Wrong Content-Type → 415
+POST {{baseUrl}}
+Content-Type: text/plain
+
+hello
+
+### 45. Wrong HTTP method → 405 (there is no PUT on /api/events)
+PUT {{baseUrl}}?email={{roomie1}}&from=2026-11-01
+Content-Type: application/json
+
+{}
+
+### CORS preflight (what the browser sends) → 200, the answer has the header Access-Control-Allow-Origin: http://127.0.0.1:5501
+OPTIONS {{baseUrl}}
+Origin: http://127.0.0.1:5501
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: content-type

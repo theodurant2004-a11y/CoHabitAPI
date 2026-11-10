@@ -2,7 +2,9 @@ package be.cohabitapi.cohabitapi.Models;
 
 import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidCredentialsException;
+import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
+import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import jakarta.persistence.*;
 import org.mindrot.jbcrypt.BCrypt;
 import java.util.Locale;
@@ -140,6 +142,9 @@ public abstract class Person {
     // Abstract because a roomie and an owner don't calculate their balance the same way
     public abstract double calculateBalance();
 
+    // the roomshare of this user (roomie or owner) with his events
+    public abstract RoomShare findRoomshareWithEvents(RoomShareDAO dao);
+
     // Used when a new expense is created
     public void addExpenseToReceive(Expense expense) {
         if (expense == null)
@@ -189,6 +194,17 @@ public abstract class Person {
 
     public static Person findByEmail(String email, PersonDAO dao){
         return dao.findByEmail(email);
+    }
+
+    // static because it returns the user, the first object
+    public static Person checkRightPerson(String email, PersonDAO dao){
+
+        Person user = findByEmail(normalizeEmail(email), dao);
+
+        if (user == null)
+            throw new UserNotFoundException();
+
+        return user;
     }
 
     public static Person findById(PersonDAO dao, int id) { return dao.findById(id); }

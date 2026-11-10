@@ -182,6 +182,18 @@ public class Roomie extends Person {
         return task;
     }
 
+
+    // CALENDAR : the roomshare of this roomie loaded with its events
+    // The roomie already has the link "roomshare" with its events because of eager
+    // the paramater "dao" is only needed by the owner
+    @Override
+    public RoomShare findRoomshareWithEvents(RoomShareDAO dao) {
+        // A pending roomie or a roomie without roomshare has no calendar
+        checkIsAccepted();
+
+        return roomshare;
+    }
+
     //  EXPENSES
 
     // Finds the accepted roomie behind this email, with his roomshare loaded
