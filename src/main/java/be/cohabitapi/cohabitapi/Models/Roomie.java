@@ -161,6 +161,7 @@ public class Roomie extends Person {
     // We compare the ids: the two roomshares can be two different instances of the same roomshare
     public boolean isAcceptedMemberOf(RoomShare roomshare) {
         return roomshare != null
+                //TODO: Deja un roomshare dedans
                 && this.statusMember == MembershipStatus.ACCEPTED
                 && this.roomshare != null
                 && this.roomshare.getId().equals(roomshare.getId());
