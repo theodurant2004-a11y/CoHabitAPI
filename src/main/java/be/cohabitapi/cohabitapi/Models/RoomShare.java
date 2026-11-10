@@ -1,17 +1,14 @@
 package be.cohabitapi.cohabitapi.Models;
 
-import static be.cohabitapi.cohabitapi.API.APIResponse.error;
 import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStringAttribute;
 
 import be.cohabitapi.cohabitapi.DAO.DAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
-import be.cohabitapi.cohabitapi.EXCEPTION.NoItemInTheListException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotMemberOfRoomShareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
-import jakarta.ws.rs.core.Response;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
@@ -56,6 +53,9 @@ public class RoomShare {
     // cascade all and orphanremoval it's used when a roomshare is deleted their tasks are too.
     @OneToMany(mappedBy = "roomshare", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Task> tasks = new ArrayList<>();
+
+    @OneToMany(mappedBy = "roomShare")
+    private List<Item> items = new ArrayList<>();
 
 
     // ------------------------- Getters and Setters --------------------------------------------------

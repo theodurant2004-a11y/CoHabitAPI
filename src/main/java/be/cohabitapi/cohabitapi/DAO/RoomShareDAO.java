@@ -82,6 +82,16 @@ public class RoomShareDAO extends DAO<RoomShare> {
         }
     }
 
+    public RoomShare findByIdWithItems(int roomShareId) {
+        try (EntityManager em = JpaUtil.createEntityManager()) {
+            // LEFT JOIN FETCH ensures the RoomShare is loaded even if the list is empty
+            return em.createQuery(
+                            "SELECT rs FROM RoomShare rs LEFT JOIN FETCH rs.items WHERE rs.id = :id", RoomShare.class)
+                    .setParameter("id", roomShareId)
+                    .getSingleResult();
+        }
+    }
+
     // Loads a roomshare with its roomies and all their expenses
     // 3 queries with the same em because Hibernate can't fetch two lists in one query
     public RoomShare findWithRoomies(Integer id) {
