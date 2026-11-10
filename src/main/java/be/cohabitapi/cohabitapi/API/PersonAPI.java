@@ -39,18 +39,20 @@ public class PersonAPI {
         if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
 
         try {
-            // Ask the model: it checks the passwords, the role and the email, then saves the person
-            Person person = Person.signup(
-                    req.getLastname(),
-                    req.getFirstname(),
-                    req.getEmail(),
-                    req.getPassword(),
-                    req.getConfirmPassword(),
-                    req.getRole(),
-                    dao);
+            // 1. The role decides which class is created (the only thing API decides)
+            String role = req.getRole() == null ? "" : req.getRole().trim().toLowerCase(Locale.ROOT);
+            Person person;
 
-            // Take the role of user (same way as in the login)
-            String role = person.getClass().getSimpleName();
+            if("owner".equals(role)) {
+                person = new Owner(req.getLastname(), req.getFirstname(), req.getEmail(), req.getPassword(), req.getConfirmPassword());
+            } else if ("roomie".equals(role)) {
+                person = new Roomie(req.getLastname(), req.getFirstname(), req.getEmail(), req.getPassword(), req.getConfirmPassword());
+            } else {
+                return error(Response.Status.BAD_REQUEST, "Invalid role.");
+            }
+
+            //2. the person saves itself
+            person.create(dao);
 
             // api response (the role is sent back to the front)
             UserResponse userResponse = new UserResponse(
@@ -69,7 +71,7 @@ public class PersonAPI {
             return error(Response.Status.CONFLICT, e.getMessage());
 
         } catch (IllegalArgumentException e) {
-            //error 400 BAD_REQUEST: a business rule is broken in the model (passwords, role, name, email...)
+            //error 400 BAD_REQUEST: a business rule is broken in the model or the role is invalid
             return error(Response.Status.BAD_REQUEST, e.getMessage());
 
         } catch (RuntimeException e) {

@@ -91,6 +91,11 @@ public class Roomie extends Person {
         super(lastName, firstName, email, password);
     }
 
+    // SIGNUP : the constructor with the confirm password
+    public Roomie(String lastName, String firstName, String email, String password, String confirmPassword){
+        super(lastName, firstName, email, password, confirmPassword);
+    }
+
     // Same as the constructor above but with the possibility to join directly a room share
     public Roomie(String lastName, String firstName, String email, String password, RoomShare roomShare) {
         super(lastName, firstName, email, password);
