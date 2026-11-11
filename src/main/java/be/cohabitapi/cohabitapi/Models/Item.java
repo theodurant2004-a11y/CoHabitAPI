@@ -116,4 +116,22 @@ public class Item {
         int itemsDeleted = dao.deleteCheckedItems(roomShareId);
         if (itemsDeleted < 1) throw new IllegalStateException("No item is checked.");
     }
+
+
+    // ------------------------- OVERLOADS --------------------------------------------------
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Item item = (Item) o;
+        return Objects.equals(this.product.getId(), item.product.getId()) &&
+                Objects.equals(this.roomShare.getId(), item.roomShare.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(product.getId(), roomShare.getId());
+    }
 }

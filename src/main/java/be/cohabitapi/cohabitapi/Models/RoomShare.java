@@ -3,12 +3,10 @@ package be.cohabitapi.cohabitapi.Models;
 import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStringAttribute;
 
 import be.cohabitapi.cohabitapi.DAO.DAO;
+import be.cohabitapi.cohabitapi.DAO.ItemDAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
-import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
-import be.cohabitapi.cohabitapi.EXCEPTION.NotMemberOfRoomShareException;
-import be.cohabitapi.cohabitapi.EXCEPTION.RoomShareNotFoundException;
-import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
+import be.cohabitapi.cohabitapi.EXCEPTION.*;
 import jakarta.persistence.*;
 
 import java.security.SecureRandom;
@@ -188,11 +186,50 @@ public class RoomShare {
         throw new IllegalArgumentException("A roomie of the list does not belong to your roomshare.");
     }
 
-    public void addItem(Item item) {
-        if (item != null && !items.contains(item)) {
-            items.add(item);
-            item.setRoomShare(this);
+    public void addItem(Product product, String quantity, ItemDAO itemDAO) {
+        Item newItem = new Item(product, this, quantity);
+
+        if (getItems().contains(newItem)) throw new ItemAlreadyExistsException();
+
+        items.add(newItem);
+
+        newItem.create(itemDAO);
+    }
+
+    public void modifyItem(int productId, String newQuantity, Boolean newStatus, ItemDAO itemDAO) {
+        Item targetItem = null;
+
+        for (Item item : getItems()) {
+            if (item.getProduct().getId().equals(productId)) {
+                targetItem = item;
+                break;
+            }
         }
+
+        if (targetItem == null) throw new ItemNotFoundException();
+
+        if (newQuantity != null) targetItem.setQuantity(newQuantity);
+
+        if (newStatus != null) targetItem.setStatus(newStatus);
+
+        targetItem.update(itemDAO);
+    }
+
+    public void removeItem(int productId, ItemDAO itemDAO) {
+        Item targetItem = null;
+
+        for (Item item : getItems()) {
+            if (item.getProduct().getId().equals(productId)) {
+                targetItem = item;
+                break;
+            }
+        }
+
+        if (targetItem == null) throw new ItemNotFoundException();
+
+        items.remove(targetItem);
+
+        targetItem.delete(itemDAO);
     }
 
 
@@ -206,11 +243,6 @@ public class RoomShare {
         return roomShare;
     }
 
-    public static RoomShare findByIdWithRoomies(RoomShareDAO dao, Integer id) {
-        RoomShare roomShare = dao.findWithRoomies(id);
-        if (roomShare == null) throw new RoomShareNotFoundException();
-        return roomShare;
-    }
 
     // ------------------------- MEMBERS OF A ROOMSHARE --------------------------------------------------
 

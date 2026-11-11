@@ -94,10 +94,8 @@ public class ShoppingListAPI {
             // And in all cases, we return the product
             Product product = Product.findOrCreate(productDAO, req.getName(), req.getCategory());
 
-            // Create the item object now that we have the product and the room share
-            Item item = new Item(product, roomShare, req.getQuantity());
-            roomShare.addItem(item);
-            item.create(itemDAO); // Use it and give it to the method who insert the data in db
+            // Create the item object by the room share and use the DAO method to create it in db
+            roomShare.addItem(product, req.getQuantity(), itemDAO);
 
             // Use of 'CREATED' because we create in db a new item
             return Response.status(Response.Status.CREATED).build();
@@ -128,24 +126,13 @@ public class ShoppingListAPI {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response updateItem(@PathParam("roomShareId") int roomShareId, @PathParam("productId") int productId, UpdateItemReq req) {
-        if (req == null || req.getQuantity() == null || req.getStatus() == null)
+        if (req == null || (req.getQuantity() == null && req.getStatus() == null))
             return error(Response.Status.BAD_REQUEST, "JSON invalid.");
 
         try {
             RoomShare roomShare = RoomShare.findByIdWithItems(roomShareDAO, roomShareId);
 
-            Product product = Product.findById(productDAO, productId);
-
-            // Now that we have the room share and the product, we can search the item in db and return it
-            // The goal is to recover the whole object,
-            // update its attributes, even the attribute without changes
-            // and send the update item in db
-            // Maybe the user checked the item, or maybe he changed its quantity,
-            // in all cases, we redefine this attributes with the values in the request
-            Item item = Item.findById(itemDAO, product.getId(), roomShare.getId());
-            item.setStatus(req.getStatus());
-            item.setQuantity(req.getQuantity());
-            item.update(itemDAO); // Update in db
+            roomShare.modifyItem(productId, req.getQuantity(), req.getStatus(), itemDAO);
 
             return Response.status(Response.Status.OK).build();
         }
@@ -171,12 +158,12 @@ public class ShoppingListAPI {
     @DELETE
     @Path("/{roomShareId}/{productId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response deleteItem(@PathParam("roomShareId") int roomShareId, @PathParam("productId") int productId) {
+    public Response removeItem(@PathParam("roomShareId") int roomShareId, @PathParam("productId") int productId) {
         try {
             RoomShare roomShare = RoomShare.findByIdWithItems(roomShareDAO, roomShareId);
-            Product product = Product.findById(productDAO, productId);
-            Item item = Item.findById(itemDAO, product.getId(), roomShare.getId());
-            item.delete(itemDAO); // We delete the item (the combo of a specific product and a specific room share) in db but not the product
+
+            // We delete the item (the combo of a specific product and a specific room share) in db but not the product
+            roomShare.removeItem(productId, itemDAO);
 
             // 'NO_CONTENT' because, we return nothing but an action is made nonetheless
             return Response.status(Response.Status.NO_CONTENT).build();

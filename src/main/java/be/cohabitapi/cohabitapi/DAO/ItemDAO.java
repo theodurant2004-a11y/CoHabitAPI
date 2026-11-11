@@ -28,35 +28,7 @@ public class ItemDAO extends DAO<Item> {
                 transaction.commit();
             }
             catch (RuntimeException e) {
-                if (transaction.isActive())
-                    transaction.rollback();
-
-                // We check that this an actual uniqueness constraint violation
-
-                // We create a variable to contain the cause,
-                // and first it contains the exception concerned
-                // by the catch (RuntimeException)
-                Throwable cause = e;
-
-                while (cause != null) {
-
-                    // We check if this current cause is an object of these exception classes
-                    if (cause instanceof org.hibernate.exception.ConstraintViolationException ||
-                            cause instanceof java.sql.SQLIntegrityConstraintViolationException) {
-                        // In this case, we know that this is really a uniqueness constraint violation
-                        // So, we throw our own specific exception
-                        throw new ItemAlreadyExistsException();
-                    }
-
-                    // And because this method will get
-                    // at each loop the cause of the current cause,
-                    // at some point, it will be null
-                    // because the current cause is the origin
-                    cause = cause.getCause();
-                }
-
-                // Maybe it's not at all an integrity constraint exception
-                // So, we throw basically the general RuntimeException
+                if (transaction.isActive()) transaction.rollback();
                 throw e;
             }
         }

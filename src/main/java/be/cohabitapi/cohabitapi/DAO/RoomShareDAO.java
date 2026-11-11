@@ -42,7 +42,7 @@ public class RoomShareDAO extends DAO<RoomShare> {
     public RoomShare findByIdWithItems(Integer id) {
         try (EntityManager em = JpaUtil.createEntityManager()) {
             List<RoomShare> results = em.createQuery(
-                    "SELECT DISTINCT rs FROM RoomShare rs LEFT JOIN FETCH rs.items WHERE rs.id = :id", RoomShare.class)
+                            "SELECT DISTINCT rs FROM RoomShare rs LEFT JOIN FETCH rs.items WHERE rs.id = :id", RoomShare.class)
                     .setParameter("id", id)
                     .getResultList();
 

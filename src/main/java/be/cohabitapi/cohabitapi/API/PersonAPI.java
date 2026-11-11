@@ -81,7 +81,7 @@ public class PersonAPI {
     }
 
     //--------------------- SignIn gestion -------------------------------
-    @POST
+    @GET
     @Path("/login")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
