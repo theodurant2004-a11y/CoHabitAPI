@@ -14,6 +14,8 @@ import be.cohabitapi.cohabitapi.DTO.SummaryResponse;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
+import be.cohabitapi.cohabitapi.EXCEPTION.ExpenseNotFoundException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotCreditorException;
 import be.cohabitapi.cohabitapi.Models.Expense;
 import be.cohabitapi.cohabitapi.Models.ExpenseCategory;
 import be.cohabitapi.cohabitapi.Models.Person;
@@ -76,7 +78,7 @@ public class ExpenseAPI {
         try {
             List<CategoryResponse> categories = new ArrayList<>();
             for (ExpenseCategory category : ExpenseCategory.values()) {
-                categories.add(new CategoryResponse(category.getCode(), category.getLabel(), category.getIcon()));
+                categories.add(new CategoryResponse(category.getCode(), category.getLabel()));
             }
 
             return Response.ok(categories).build();
@@ -126,6 +128,42 @@ public class ExpenseAPI {
         }
     }
 
+    // To say that an expense is paid
+    // id is the id of the expense and the email says who is asking
+    // TODO : remove the email when the session system is efficient (the API will know who is calling)
+    @PUT
+    @Path("/{id}/settle")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response settleExpense(@PathParam("id") int id, @QueryParam("email") String email) {
+        try {
+            // the user must be an accepted member of a roomshare
+            Roomie me = Roomie.findAcceptedMember(email, personDAO, roomShareDAO);
+
+            me.settleExpense(id, expenseDAO);
+
+            // The front asks the list again to see the new totals
+            return Response.noContent().build();
+
+        } catch (IllegalArgumentException e) {
+            // For ex : the expense is already settled
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+
+        } catch (UserNotFoundException e) {
+            return error(Response.Status.UNAUTHORIZED, e.getMessage());
+
+        } catch (ExpenseNotFoundException e) {
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+
+        } catch (NotCreditorException | ForbiddenRoleException | NotInRoomshareException e) {
+            // The user exists but is not allowed to do this action
+            return error(Response.Status.FORBIDDEN, e.getMessage());
+
+        } catch (RuntimeException e) {
+            // We do not send the real message : it could show details of the server
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
+        }
+    }
+
 
     // Model => DTO
     // This method only copies what the model calculated into the DTOs
@@ -134,11 +172,10 @@ public class ExpenseAPI {
         List<BalanceResponse> balanceList = new ArrayList<>();
 
         for (Roomie roomie : me.getRoomshare().getAcceptedRoomies()) {
-            String color = roomie.chooseColor();
 
-            members.add(new MemberResponse(roomie.getIdPerson(), roomie.getFullName(), color));
+            members.add(new MemberResponse(roomie.getIdPerson(), roomie.getFullName()));
             balanceList.add(new BalanceResponse(
-                    roomie.getFullName(), color, roomie.calculateBalance(), roomie.calculatePercent()));
+                    roomie.getFullName(), roomie.calculateBalance(), roomie.calculatePercent()));
         }
 
         List<ExpenseLineResponse> expenses = new ArrayList<>();
@@ -154,7 +191,7 @@ public class ExpenseAPI {
                     expense.getDebtor().getFullName(),
                     creditor == null ? null : creditor.getIdPerson(),
                     creditor == null ? "" : creditor.getFullName(),
-                    expense.getCategory().getIcon(),
+                    expense.getCategory().getCode(),
                     expense.isSettled()));
         }
 

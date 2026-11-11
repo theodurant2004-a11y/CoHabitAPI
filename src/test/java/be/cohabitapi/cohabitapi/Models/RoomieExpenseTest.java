@@ -6,6 +6,8 @@ import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.EXCEPTION.ForbiddenRoleException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
+import be.cohabitapi.cohabitapi.EXCEPTION.ExpenseNotFoundException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotCreditorException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -497,12 +499,6 @@ class RoomieExpenseTest {
         assertEquals(0, me.calculatePercent());
     }
 
-    @Test
-    void chooseColor_eachRoomieOfTheListHasHisOwnColor() {
-        assertNotEquals(me.chooseColor(), second.chooseColor());
-        assertNotEquals(second.chooseColor(), third.chooseColor());
-    }
-
 
     // ------------------------- Refunds --------------------------------------------------
 
@@ -565,4 +561,88 @@ class RoomieExpenseTest {
         // A refund is only a suggestion: nothing goes to the db
         verifyNoInteractions(expenseDAO);
     }
+
+
+    // ------------------------- Settle an expense --------------------------------------------------
+
+    // The creditor (the one who is owed) can settle: the expense is settled AND saved
+    @Test
+    void settleExpense_creditor_settlesTheExpenseAndSavesIt() {
+        // The second roomie owes 10 euros to me
+        Expense expense = debt(10, second, me);
+        when(expenseDAO.findById(1)).thenReturn(expense);
+
+        // I say that he paid
+        me.settleExpense(1, expenseDAO);
+
+        // The expense is settled and the DAO was asked to save it
+        assertTrue(expense.isSettled());
+        verify(expenseDAO).update(expense);
+    }
+
+    // The debtor cannot say "I paid" himself: refused, and nothing is saved
+    @Test
+    void settleExpense_debtor_isRefusedAndNothingIsSaved() {
+        Expense expense = debt(10, second, me);
+        when(expenseDAO.findById(1)).thenReturn(expense);
+
+        assertThrows(NotCreditorException.class, () -> second.settleExpense(1, expenseDAO));
+
+        // The expense is still pending and the DAO was never asked to save anything
+        assertFalse(expense.isSettled());
+        verify(expenseDAO, never()).update(any());
+    }
+
+    // Someone who is not in the expense at all cannot settle it either
+    @Test
+    void settleExpense_thirdRoomie_isRefused() {
+        Expense expense = debt(10, second, me);
+        when(expenseDAO.findById(1)).thenReturn(expense);
+
+        assertThrows(NotCreditorException.class, () -> third.settleExpense(1, expenseDAO));
+
+        assertFalse(expense.isSettled());
+        verify(expenseDAO, never()).update(any());
+    }
+
+    // An id that does not exist gives a "not found" error
+    @Test
+    void settleExpense_unknownExpense_throwsNotFound() {
+        when(expenseDAO.findById(99)).thenReturn(null);
+
+        assertThrows(ExpenseNotFoundException.class, () -> me.settleExpense(99, expenseDAO));
+
+        verify(expenseDAO, never()).update(any());
+    }
+
+    // An expense that is already settled cannot be settled again, and it is not saved a second time
+    @Test
+    void settleExpense_alreadySettled_throwsException() {
+        Expense expense = debt(10, second, me);
+        expense.settle();
+        when(expenseDAO.findById(1)).thenReturn(expense);
+
+        assertThrows(IllegalArgumentException.class, () -> me.settleExpense(1, expenseDAO));
+
+        verify(expenseDAO, never()).update(any());
+    }
+
+    // What the user sees: once settled, the debt disappears from the balances AND from the suggested refunds
+    @Test
+    void settle_removesTheDebtFromTheBalancesAndTheRefunds() {
+        Expense expense = debt(10, second, me);
+
+        // Before: I am owed 10, the second roomie owes 10 and a refund is suggested
+        assertEquals(1000L, me.calculateBalanceInCents());
+        assertEquals(-1000L, second.calculateBalanceInCents());
+        assertEquals(1, me.suggestRefunds().size());
+
+        expense.settle();
+
+        // After: nobody owes anything anymore
+        assertEquals(0L, me.calculateBalanceInCents());
+        assertEquals(0L, second.calculateBalanceInCents());
+        assertTrue(me.suggestRefunds().isEmpty());
+    }
+
 }

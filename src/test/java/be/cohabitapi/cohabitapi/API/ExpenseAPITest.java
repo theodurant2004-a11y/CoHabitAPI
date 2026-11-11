@@ -125,7 +125,7 @@ class ExpenseAPITest {
         assertEquals(1, body.getRefunds().size());
         assertEquals("Nora Lfarh", body.getRefunds().get(0).getFrom());
         assertEquals("Test Roomie", body.getRefunds().get(0).getTo());
-        // the bar and the colors are prepared by the model
+        // the bar are prepared by the model
         assertEquals(100, body.getBalances().get(0).getPercent());
         assertEquals(15.0, body.getBalances().get(0).getAmount(), 0.001);
         assertEquals(-15.0, body.getBalances().get(1).getAmount(), 0.001);
@@ -204,7 +204,6 @@ class ExpenseAPITest {
         assertEquals(ExpenseCategory.values().length, body.size());
         assertEquals(ExpenseCategory.FOOD.getCode(), body.get(0).getCode());
         assertEquals(ExpenseCategory.FOOD.getLabel(), body.get(0).getLabel());
-        assertEquals(ExpenseCategory.FOOD.getIcon(), body.get(0).getIcon());
     }
 
 
