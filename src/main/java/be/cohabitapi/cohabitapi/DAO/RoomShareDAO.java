@@ -35,9 +35,18 @@ public class RoomShareDAO extends DAO<RoomShare> {
 
     public RoomShare findById(Integer id){
         try (EntityManager em = JpaUtil.createEntityManager()) {
-            RoomShare rs = em.find(RoomShare.class, id);
-            if (rs == null) throw new RoomShareNotFoundException();
-            return rs;
+            return em.find(RoomShare.class, id);
+        }
+    }
+
+    public RoomShare findByIdWithItems(Integer id) {
+        try (EntityManager em = JpaUtil.createEntityManager()) {
+            List<RoomShare> results = em.createQuery(
+                    "SELECT DISTINCT rs FROM RoomShare rs LEFT JOIN FETCH rs.items WHERE rs.id = :id", RoomShare.class)
+                    .setParameter("id", id)
+                    .getResultList();
+
+            return results.isEmpty() ? null : results.get(0);
         }
     }
 
@@ -79,16 +88,6 @@ public class RoomShareDAO extends DAO<RoomShare> {
             return results.isEmpty() ? null : results.get(0);
         } finally {
             em.close();
-        }
-    }
-
-    public RoomShare findByIdWithItems(int roomShareId) {
-        try (EntityManager em = JpaUtil.createEntityManager()) {
-            // LEFT JOIN FETCH ensures the RoomShare is loaded even if the list is empty
-            return em.createQuery(
-                            "SELECT rs FROM RoomShare rs LEFT JOIN FETCH rs.items WHERE rs.id = :id", RoomShare.class)
-                    .setParameter("id", roomShareId)
-                    .getSingleResult();
         }
     }
 

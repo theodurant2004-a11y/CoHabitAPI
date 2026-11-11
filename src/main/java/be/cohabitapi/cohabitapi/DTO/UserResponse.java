@@ -11,6 +11,7 @@ public class UserResponse {
     // Information about the roomshare of the user, it's null when he has none
     // Only filled at the login and roomie gets his status ("none", "pending" or "accepted")
     private String membershipStatus;
+    private Integer roomShareId;
     private String roomshareName;
     private String invitationKey;
 
@@ -62,6 +63,10 @@ public class UserResponse {
     public void setMembershipStatus(String membershipStatus) {
         this.membershipStatus = membershipStatus;
     }
+
+    public Integer getRoomShareId() { return roomShareId; }
+
+    public void setRoomShareId(Integer roomShareId) { this.roomShareId = roomShareId; }
 
     public String getRoomshareName() {
         return roomshareName;

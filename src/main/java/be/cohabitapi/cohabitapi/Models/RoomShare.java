@@ -7,6 +7,7 @@ import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotMemberOfRoomShareException;
+import be.cohabitapi.cohabitapi.EXCEPTION.RoomShareNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
 
@@ -108,6 +109,11 @@ public class RoomShare {
     public List<Task> getTasks() {return Collections.unmodifiableList(tasks); }
 
 
+    public List<Item> getItems() {
+        return Collections.unmodifiableList(items);
+    }
+
+
     // ------------------------- Constructors --------------------------------------------------
 
     // Only for Hibernate
@@ -126,17 +132,6 @@ public class RoomShare {
 
 
     // ------------------------- Utility methods --------------------------------------------------
-
-    public static RoomShare findRoomShareByRoomie(PersonDAO personDAO, RoomShareDAO roomShareDAO, int userId)
-    {
-        Roomie roomie = Roomie.checkRightRoomie(personDAO, userId);
-        if (roomie.getStatusMember() != MembershipStatus.ACCEPTED) throw new NotMemberOfRoomShareException();
-        // We do not juste use roomie.getRoomShare(),
-        // because we're not sure that
-        // this is a whole object well-completed
-        // So, we regenerate it with findById()
-        return RoomShare.findById(roomShareDAO, roomie.getRoomshare().getId());
-    }
 
     // We create our own method to generate de invitation key
     // We choose to have an invitation key of 6 characters
@@ -193,10 +188,29 @@ public class RoomShare {
         throw new IllegalArgumentException("A roomie of the list does not belong to your roomshare.");
     }
 
+    public void addItem(Item item) {
+        if (item != null && !items.contains(item)) {
+            items.add(item);
+            item.setRoomShare(this);
+        }
+    }
+
 
     // ------------------------- DAO methods --------------------------------------------------
 
     public void create(DAO<RoomShare> dao) { dao.create(this); }
+
+    public static RoomShare findByIdWithItems(RoomShareDAO dao, Integer id) {
+        RoomShare roomShare = dao.findByIdWithItems(id);
+        if (roomShare == null) throw new RoomShareNotFoundException();
+        return roomShare;
+    }
+
+    public static RoomShare findByIdWithRoomies(RoomShareDAO dao, Integer id) {
+        RoomShare roomShare = dao.findWithRoomies(id);
+        if (roomShare == null) throw new RoomShareNotFoundException();
+        return roomShare;
+    }
 
     // ------------------------- MEMBERS OF A ROOMSHARE --------------------------------------------------
 
@@ -234,6 +248,4 @@ public class RoomShare {
 
         return members;
     }
-
-    public static RoomShare findById(RoomShareDAO dao, Integer id) { return dao.findById(id); }
 }

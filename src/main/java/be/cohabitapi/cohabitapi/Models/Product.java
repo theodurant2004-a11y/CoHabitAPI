@@ -3,6 +3,7 @@ package be.cohabitapi.cohabitapi.Models;
 import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStringAttribute;
 
 import be.cohabitapi.cohabitapi.DAO.ProductDAO;
+import be.cohabitapi.cohabitapi.EXCEPTION.ProductNotFoundException;
 import jakarta.persistence.*;
 
 @Entity
@@ -65,9 +66,20 @@ public class Product {
 
     // ------------------------- DAO methods --------------------------------------------------
 
-    public void create(ProductDAO dao) { dao.create(this); }
+    // Search a product and if it exists, it returns it but if not, it creates it
+    public static Product findOrCreate(ProductDAO dao, String name, String category) {
+        Product product = dao.findByNameAndCategory(name, category);
+        if (product == null) {
+            product = new Product(name, category);
+            dao.create(product);
+        }
+        return product;
+    }
 
-    public static Product findByNameAndCategory(ProductDAO dao, String name, String category) { return dao.findByNameAndCategory(name, category); }
-
-    public static Product findById(ProductDAO dao, int id) { return dao.findById(id); }
+    // Search a product by its id, and if it exists, it returns it, and if not, it throws an exception
+    public static Product findById(ProductDAO dao, int id) {
+        Product product = dao.findById(id);
+        if (product == null) throw new ProductNotFoundException();
+        return product;
+    }
 }

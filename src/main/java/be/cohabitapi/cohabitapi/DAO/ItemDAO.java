@@ -1,9 +1,6 @@
 package be.cohabitapi.cohabitapi.DAO;
 
 import be.cohabitapi.cohabitapi.EXCEPTION.ItemAlreadyExistsException;
-import be.cohabitapi.cohabitapi.EXCEPTION.ItemNotFoundException;
-import be.cohabitapi.cohabitapi.EXCEPTION.NoItemCheckedException;
-import be.cohabitapi.cohabitapi.EXCEPTION.NoItemInTheListException;
 import be.cohabitapi.cohabitapi.Models.*;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
@@ -68,22 +65,17 @@ public class ItemDAO extends DAO<Item> {
     public Item findById(int productId, int roomShareId) {
         try (EntityManager em = JpaUtil.createEntityManager()) {
             ItemId id = new ItemId(productId, roomShareId);
-            Item i = em.find(Item.class, id);
-            if (i == null) throw new ItemNotFoundException();
-            return i;
+            return em.find(Item.class, id);
         }
     }
 
     public List<Item> findAll(Integer roomShareId) {
         try (EntityManager em = JpaUtil.createEntityManager()) {
-            List<Item> items = em.createQuery(
-                            "SELECT i FROM Item i WHERE i.roomShare.id = :roomShareId", Item.class)
+            return em.createQuery(
+                    // JOIN FETCH load the products by the way !
+                            "SELECT i FROM Item i JOIN FETCH i.product WHERE i.roomShare.id = :roomShareId", Item.class)
                     .setParameter("roomShareId", roomShareId)
                     .getResultList(); // Returns an empty list if nothing is found
-
-            if (items.isEmpty()) throw new NoItemInTheListException();
-
-            return items;
         }
     }
 
@@ -127,7 +119,16 @@ public class ItemDAO extends DAO<Item> {
         }
     }
 
-    public void deleteCheckedItems(int roomShareId) {
+    public long countCheckedItems(int roomShareId) {
+        try (EntityManager em = JpaUtil.createEntityManager()) {
+            return em.createQuery(
+                            "SELECT COUNT(i) FROM Item i WHERE i.roomShare.id = :roomShareId AND i.status = true", Long.class)
+                    .setParameter("roomShareId", roomShareId)
+                    .getSingleResult();
+        }
+    }
+
+    public int deleteCheckedItems(int roomShareId) {
         try (EntityManager em = JpaUtil.createEntityManager()) {
             EntityTransaction transaction = em.getTransaction();
             try {
@@ -138,9 +139,9 @@ public class ItemDAO extends DAO<Item> {
                         .setParameter("roomShareId", roomShareId)
                         .executeUpdate();
 
-                if (deletedCount < 1) throw new NoItemCheckedException();
-
                 transaction.commit();
+
+                return deletedCount;
             } catch (RuntimeException e) {
                 if (transaction.isActive()) transaction.rollback();
                 throw e;

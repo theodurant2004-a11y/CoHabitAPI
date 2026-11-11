@@ -33,9 +33,7 @@ public class ProductDAO extends DAO<Product> {
 
     public Product findById(int id) {
         try (EntityManager em = JpaUtil.createEntityManager()) {
-            Product p = em.find(Product.class, id);
-            if (p == null) throw new ProductNotFoundException();
-            return p;
+            return em.find(Product.class, id);
         }
     }
 

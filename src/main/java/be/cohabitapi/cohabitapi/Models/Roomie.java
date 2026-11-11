@@ -243,6 +243,43 @@ public class Roomie extends Person {
         return debts;
     }
 
+    // Overload of the method above to give directly a list of roomies as the sharers instead of their ids
+    // Because in the case of the shopping list, the amount is shared automatically between all the roomies
+    public List<Expense> addExpense(String description, Double amount, String date, String category,
+                                    List<Roomie> sharers, Integer paidById, ExpenseDAO expenseDAO) {
+        checkIsAccepted();
+        long totalCents = toCents(amount);
+        LocalDate cleanDate = parseDate(date);
+        Roomie payer = roomshare.findRoomie(paidById);
+
+        // No need, there, to find the sharers because, they're already loaded
+
+        long baseCents = totalCents / sharers.size();
+        long remainder = totalCents % sharers.size();
+
+        List<Expense> debts = new ArrayList<>();
+        for (int i = 0; i < sharers.size(); i++) {
+            long shareCents = baseCents + (i < remainder ? 1 : 0);
+            Roomie sharer = sharers.get(i);
+
+            if (!sharer.equals(payer)) {
+                debts.add(new Expense(description, shareCents / 100.0, cleanDate, category, sharer, payer));
+            }
+        }
+
+        if (debts.isEmpty())
+            throw new IllegalArgumentException("Choose at least one other roomie than the one who paid.");
+
+        expenseDAO.createAll(debts);
+
+        for (Expense debt : debts) {
+            debt.getDebtor().addExpenseToPay(debt);
+            payer.addExpenseToReceive(debt);
+        }
+
+        return debts;
+    }
+
     private List<Roomie> findSharers(List<Integer> sharedWithIds) {
         if (sharedWithIds == null || sharedWithIds.isEmpty())
             throw new IllegalArgumentException("Choose at least one roomie to split with.");
