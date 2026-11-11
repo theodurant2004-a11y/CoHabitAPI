@@ -119,6 +119,16 @@ public abstract class Person {
         setPassword(plainPassword);
     }
 
+    // SIGNUP: same as above but also checks the confirm password
+    protected Person(String lastName, String firstName, String email, String plainPassword, String confirmPassword){
+        this(lastName, firstName, email, plainPassword);
+
+        String cleanConfirm = confirmPassword == null ? "" : confirmPassword.trim();
+        if(!plainPassword.trim().equals(cleanConfirm)){
+            throw new IllegalArgumentException("Passwords do not match.");
+        }
+    }
+
     // a method to check if the field is blank
     private static String requireNotBlank(String value, String fieldName){
         if(value == null || value.trim().isEmpty()){
@@ -128,7 +138,11 @@ public abstract class Person {
     }
 
     //==============================METHODS==============================
+    // this method is to signup, we don't check the values because we already did it in the constructor
     public void create(PersonDAO dao){
+        if(dao.existsByEmail(this.email)){
+            throw new EmailAlreadyUsedException();
+        }
         dao.create(this);
     }
 
@@ -183,10 +197,6 @@ public abstract class Person {
         return password.trim();
     }
 
-    public static boolean existsByEmail(String email, PersonDAO dao){
-        return dao.existsByEmail(email);
-    }
-
     public static Person findByEmail(String email, PersonDAO dao){
         return dao.findByEmail(email);
     }
@@ -212,39 +222,6 @@ public abstract class Person {
             throw new InvalidCredentialsException();
         }
 
-        return person;
-    }
-
-    public static Person signup(String lastName, String firstName, String email, String password, String confirmPassword,  String role, PersonDAO dao){
-
-        String cleanEmail;
-        String cleanPassword;
-        String cleanConfirmPassword;
-
-        cleanEmail = normalizeEmail(email);
-        cleanPassword = normalizePassword(password);
-        cleanConfirmPassword = confirmPassword == null ? "" : confirmPassword.trim();
-
-        if (!cleanPassword.equals(cleanConfirmPassword)) {
-            throw new IllegalArgumentException("Passwords do not match.");
-        }
-
-        String cleanRole = role == null ? "" : role.trim().toLowerCase(Locale.ROOT);
-        Person person;
-
-        if("owner".equals(cleanRole)){
-            person = new Owner(lastName, firstName, cleanEmail, cleanPassword);
-        } else if("roomie".equals(cleanRole)){
-            person =  new Roomie(lastName, firstName, cleanEmail, cleanPassword);
-        } else {
-            throw new IllegalArgumentException("Invalid role.");
-        }
-
-        if (existsByEmail(cleanEmail, dao)) {
-            throw new EmailAlreadyUsedException();
-        }
-
-        person.create(dao);
         return person;
     }
 
