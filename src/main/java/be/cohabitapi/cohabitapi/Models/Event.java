@@ -59,14 +59,12 @@ public class Event {
     }
 
     // The setters check every value
-    public Event(String title, String description, LocalDate date, LocalTime startTime, LocalTime endTime,
-                 EventType type, RoomShare roomshare) {
+    public Event(String title, String description, String date, String startTime, String endTime, String type) {
         setTitle(title);
         setDescription(description);
-        setDate(date);
-        setTimes(startTime, endTime);
-        setType(type);
-        setRoomshare(roomshare);
+        setDate(parseDate(date, "event date"));
+        setTimes(parseTime(startTime), parseTime(endTime));
+        setType(EventType.fromCode(type));
     }
 
 
@@ -114,6 +112,8 @@ public class Event {
         return date;
     }
 
+    // The date is required, an event always happens on a day
+    // One event = one day, so there is no end date: the end TIME is checked in setTimes
     public void setDate(LocalDate date) {
         if (date == null)
             throw new IllegalArgumentException("The event date is required.");
@@ -153,7 +153,7 @@ public class Event {
     }
 
     // Private because an event never moves to another roomshare
-    private void setRoomshare(RoomShare roomshare) {
+    public void setRoomshare(RoomShare roomshare) {
         if (roomshare == null)
             throw new IllegalArgumentException("The roomshare cannot be null.");
         this.roomshare = roomshare;
@@ -162,25 +162,16 @@ public class Event {
 
     // ------------------------- Business methods -------------------------
 
-    // ADD AN EVENT
-    // Static because it creates a new event. The roomshare is the one of the caller
-    public static Event create(String title, String description, String date, String startTime, String endTime,
-                               String type, RoomShare roomshare, EventDAO eventDAO) {
+    // SAVE : the event saves itself in the db, which gives it its id
+    // It is called by RoomShare.addEvent, once the event knows its roomshare
+    public void create(EventDAO eventDAO) {
 
-        // 1. Clean the inputs (the setters of the constructor check the rest)
-        Event event = new Event(
-                title,
-                description,
-                parseDate(date, "event date"),
-                parseTime(startTime),
-                parseTime(endTime),
-                EventType.fromCode(type),
-                roomshare);
+        // Without a roomshare the insert would fail: the column roomshare_id cannot be null
+        if (roomshare == null)
+            throw new IllegalArgumentException("The event must be added to a roomshare first.");
 
-        // 2. Save it in the db
-        eventDAO.create(event);
-
-        return event;
+        //  Save it in the db
+        eventDAO.create(this);
     }
 
 

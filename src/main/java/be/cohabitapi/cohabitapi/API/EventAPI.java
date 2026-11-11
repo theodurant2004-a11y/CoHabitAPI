@@ -110,15 +110,18 @@ public class EventAPI {
             //  His roomshare with its events
             RoomShare roomshare = member.findRoomshareWithEvents(roomShareDAO);
 
-            // The model checks the values and saves
-            Event event = roomshare.addEvent(
+            // JSON => objects of the model, the API only translates
+            // The event as it was typed in the form: its own setters check every value (400)
+            Event event = new Event(
                     req.getTitle(),
                     req.getDescription(),
                     req.getDate(),
                     req.getStartTime(),
                     req.getEndTime(),
-                    req.getType(),
-                    eventDAO);
+                    req.getType());
+
+            // The roomshare adds it to its calendar and saves it (the db gives its id)
+            roomshare.addEvent(event, eventDAO);
 
             // 201 CREATED a new event exists in the db
             return Response.status(Response.Status.CREATED)

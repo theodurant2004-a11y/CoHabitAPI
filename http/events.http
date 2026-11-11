@@ -1,13 +1,6 @@
 # Base URL of the API (Tomcat Application context must be /CoHabitAPI)
 @baseUrl = http://localhost:8080/CoHabitAPI/api/events
 
-# Same test data as task.http (task-test-data.sql): only the emails are needed here, no ids
-# tasktestroomshare       : owner, accepted1, accepted2, pending
-# tasktestroomshare_other : owner_other, roomie_other
-# The owner AND the accepted roomies can read and add events (the JSON field is called roomieEmail for both)
-# A GET has no body: the email is sent in the URL (?email=...)
-# Run the cases from top to bottom: cases 2 to 9 create the events that cases 10 to 18 read
-# To start again from zero (in Oracle): DELETE FROM Event;  then COMMIT;
 @owner = task_owner@test.be
 @roomie1 = task_roomie_accepted1@test.be
 @roomie2 = task_roomie_accepted2@test.be

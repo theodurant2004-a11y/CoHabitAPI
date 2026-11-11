@@ -242,17 +242,21 @@ public class RoomShare {
     // ------------------------- EVENTS OF A ROOMSHARE --------------------------------------------------
 
     // ADD AN EVENT: the roomshare creates its event and adds it to its list, it<s a composition
-    public Event addEvent(String title, String description, String date, String startTime, String endTime,
-                          String type, EventDAO eventDAO) {
+    public void addEvent(Event event, EventDAO eventDAO) {
 
-        // The event checks all its values, then it is saved in the db
-        Event event = Event.create(title, description, date, startTime, endTime, type, this, eventDAO);
+        // Nothing to add
+        if (event == null)
+            throw new IllegalArgumentException("The event cannot be null");
 
-        // the event already knows its roomshare => Event.roomshare, now the roomshare knows its event
-        // Without this line, the list of this object would not contain the new event
+        // The event knows its roomshare (it needs it to be saved: roomshare_id cannot be null)
+        event.setRoomshare(this);
+
+        // The event saves itself and receives its id from the db
+        event.create(eventDAO);
+
+        // The roomshare knows its event
+        // Last, so a save that fails does not leave an event in the list
         events.add(event);
-
-        return event;
     }
 
     // EVENTS LIST: the events of this roomshare from "from" to "to"
