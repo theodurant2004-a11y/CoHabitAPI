@@ -11,13 +11,13 @@ public class ExpenseLineResponse {
     private String debtor;
     private Integer creditorId;
     private String creditor;
-    private String icon;
+    private String category;
     private boolean settled;
 
     public ExpenseLineResponse() {
     }
 
-    public ExpenseLineResponse(Integer id, String description, Double amount, String date, Integer debtorId, String debtor, Integer creditorId, String creditor, String icon, boolean settled) {
+    public ExpenseLineResponse(Integer id, String description, Double amount, String date, Integer debtorId, String debtor, Integer creditorId, String creditor, String category, boolean settled) {
         this.id = id;
         this.description = description;
         this.amount = amount;
@@ -26,7 +26,7 @@ public class ExpenseLineResponse {
         this.debtor = debtor;
         this.creditorId = creditorId;
         this.creditor = creditor;
-        this.icon = icon;
+        this.category = category;
         this.settled = settled;
     }
 
@@ -94,12 +94,12 @@ public class ExpenseLineResponse {
         this.creditor = creditor;
     }
 
-    public String getIcon() {
-        return icon;
+    public String getCategory() {
+        return category;
     }
 
-    public void setIcon(String icon) {
-        this.icon = icon;
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public boolean isSettled() {

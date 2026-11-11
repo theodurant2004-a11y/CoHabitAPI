@@ -146,4 +146,26 @@ class ExpenseTest {
 
         assertEquals(ExpenseCategory.OTHER, expense.getCategory());
     }
+
+    // ------------------------- Settle --------------------------------------------------
+
+    @Test
+    void settle_pendingExpense_becomesSettled() {
+        Expense expense = new Expense("Groceries", 10, LocalDate.now(), "food", second, me);
+        assertFalse(expense.isSettled());
+
+        expense.settle();
+
+        assertTrue(expense.isSettled());
+    }
+
+    @Test
+    void settle_alreadySettled_throwsException() {
+        Expense expense = new Expense("Groceries", 10, LocalDate.now(), "food", second, me);
+        expense.settle();
+
+        // A settled expense cant be settled a second time
+        assertThrows(IllegalArgumentException.class, expense::settle);
+        assertTrue(expense.isSettled());
+    }
 }
