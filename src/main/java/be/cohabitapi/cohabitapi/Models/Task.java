@@ -68,6 +68,26 @@ public class Task {
         setRoomshare(roomshare);
     }
 
+    // ADD / UPDATE A TASK : builds a task from what the front sent
+    // roomshare: the roomshare of the roomie, loaded with its roomies (by Roomie.findAcceptedMember)
+    // Every value is checked here (400 if one is wrong)
+    // The rule "no due date in the past" is in create and update: it depends on the action, not on the values
+    public Task(String name, String description, String dueDate, String status, List<Integer> roomieIds, RoomShare roomshare){
+
+        setName(name);
+        setDescription(description);
+        setDueDate(parseDueDate(dueDate));
+
+        // No status sent means a new task is pending (it's the same logic in the db, by default a task is pending)
+        setStatus((status == null || status.trim().isEmpty()) ? TaskStatus.PENDING : TaskStatus.fromLabel(status));
+
+        // We set the roomshare before the roomies, if no roomshare it return an error 400
+        setRoomshare(roomshare);
+
+        // The roomies are found in the roomshare of the roomie who calls
+        assignRoomies(roomieIds, roomshare);
+    }
+
 
     // ------------------------- Getters and Setters -------------------------
 
@@ -139,7 +159,7 @@ public class Task {
         this.roomshare = roomshare;
     }
 
-    // Read only view: the only way to add a roomie is assignRoomie (which checks the rules)
+    // Read only view: the roomies are only assigned when the task is created or updated
     public Set<Roomie> getRoomies() {
         return Collections.unmodifiableSet(roomies);
     }
@@ -147,75 +167,36 @@ public class Task {
 
     // ------------------------- Business methods -------------------------
 
-    // ADD A TASK
-    // Static because it creates a new task. The creator was already checked by Roomie.findAcceptedMember,
-    // so his roomshare is loaded with its roomies
-    public static Task create(Roomie creator, String name, String description, String dueDate,
-                              String status, List<Integer> roomieIds, TaskDAO taskDAO) {
-
-        // 1. Clean the inputs
-        LocalDate cleanDueDate = parseDueDate(dueDate);
-
-        // A new task cannot already be late (not in the setter, so an old task can still be updated later)
-        if (cleanDueDate != null && cleanDueDate.isBefore(LocalDate.now()))
+    // ADD A TASK : the task built by the constructor saves itself in the db (the database gives the id)
+    public void create(TaskDAO taskDAO){
+        // A new task cannot already be late (400)
+        if (dueDate != null && dueDate.isBefore(LocalDate.now()))
             throw new IllegalArgumentException("The due date cannot be in the past.");
 
-        // No status sent => a new task is pending (same default as the db)
-        TaskStatus cleanStatus = (status == null || status.trim().isEmpty())
-                ? TaskStatus.PENDING
-                : TaskStatus.fromLabel(status);
-
-        // 2. Build the task: its roomshare is the roomshare of the creator (an object, not an id)
-        // The setters check the name and the description
-        Task task = new Task(name, description, cleanDueDate, cleanStatus, creator.getRoomshare());
-
-        // 3. Assign the roomies, found in the roomshare of the creator
-        task.assignRoomies(roomieIds, creator.getRoomshare());
-
-        // 4. Save it in the db (the database gives the id)
-        taskDAO.create(task);
-
-        return task;
-    }
-
-    // A task can only be given to an accepted roomie of the same roomshare
-    // We ask the roomie: he knows his own status and roomshare
-    public void assignRoomie(Roomie roomie) {
-        if (roomie == null)
-            throw new IllegalArgumentException("The roomie cannot be null.");
-
-        if (!roomie.isAcceptedMemberOf(this.roomshare))
-            throw new IllegalArgumentException("A task can only be assigned to a roomie of the roomshare.");
-
-        roomies.add(roomie);
+        taskDAO.create(this);
     }
 
     // UPDATE A TASK (PUT = everything is replaced)
     // Called on a task found with roomie.findTask, so we already know it is in his roomshare
-    // roomshare: the roomshare of the roomie, loaded with its roomies (the one of the task is not)
-    public void update(String name, String description, String dueDate, String status,
-                       List<Integer> roomieIds, RoomShare roomshare, TaskDAO taskDAO) {
-
-        // 1. Clean the inputs
-        LocalDate cleanDueDate = parseDueDate(dueDate);
-
-        // 2. A NEW due date cannot be in the past, but keeping the same one is allowed (even if it is late)
+    // changes: a task built by the constructor with the new values, so they are already checked
+    public void update(Task changes, TaskDAO taskDAO) {
+        // A NEW due date cannot be in the past, but keeping the same one is allowed (even if it is late)
         // We compare before setDueDate, while we still know the old date
-        boolean dateChanged = cleanDueDate != null && !cleanDueDate.equals(this.dueDate);
-        if (dateChanged && cleanDueDate.isBefore(LocalDate.now()))
+        boolean dateChanged = changes.getDueDate() != null && !changes.getDueDate().equals(this.dueDate);
+        if (dateChanged && changes.getDueDate().isBefore(LocalDate.now()))
             throw new IllegalArgumentException("The due date cannot be in the past.");
 
-        // Required for a PUT (fromLabel refuses null)
-        TaskStatus cleanStatus = TaskStatus.fromLabel(status);
+        // This task takes the new values
+        setName(changes.getName());
+        setDescription(changes.getDescription());
+        setDueDate(changes.getDueDate());
+        setStatus(changes.getStatus());
 
-        // 3. The setters check every value
-        setName(name);
-        setDescription(description);
-        setDueDate(cleanDueDate);
-        setStatus(cleanStatus);
-        replaceRoomies(roomieIds, roomshare);
+        // The old roomies are replaced by the new ones
+        // Hibernate will only delete / insert the lines of Task_Roomie that really changed
+        roomies.clear();
+        roomies.addAll(changes.getRoomies());
 
-        // 4. Save it
         taskDAO.update(this);
     }
 
@@ -231,32 +212,31 @@ public class Task {
         taskDAO.delete(this);
     }
 
+    // True if this task is in this roomshare
+    // We compare the ids: two different objects can represent the same roomshare (two EntityManagers)
+    public boolean belongsTo(RoomShare roomshare){
+        return roomshare != null && this.roomshare.getId().equals(roomshare.getId());
+    }
+
 
     // ------------------------- Utility methods -------------------------
 
-    // Finds the roomies in the roomshare and assigns them one by one
-    // Private: only create and update use it
+    // Finds the roomies in the roomshare and adds them to the task
+    // findRoomie only gives an accepted roomie of the roomshare: 400 if the id is null or not one of them
+    // Private: only the constructor uses it
     private void assignRoomies(List<Integer> roomieIds, RoomShare roomshare) {
         // 0..* in the class diagram: a task without roomie is allowed
         if (roomieIds == null || roomieIds.isEmpty())
             return;
 
-        // A Set removes the duplicates: [3, 3, 5] becomes [3, 5]
-        for (Integer id : new HashSet<>(roomieIds)) {
-            // findRoomie refuses a null id and an id that is not an accepted roomie of the roomshare (400)
-            assignRoomie(roomshare.findRoomie(id));
+        // A Set removes the duplicates.
+        for(Integer id : new HashSet<>(roomieIds)){
+            roomies.add(roomshare.findRoomie(id));
         }
     }
 
-    // PUT replaces everything: we empty the roomies, then assign the new ones
-    // Hibernate will only delete / insert the lines of Task_Roomie that really changed
-    private void replaceRoomies(List<Integer> roomieIds, RoomShare roomshare) {
-        roomies.clear();
-        assignRoomies(roomieIds, roomshare);
-    }
-
     // "2026-10-27" becomes a LocalDate. Nothing sent => no due date
-    private static LocalDate parseDueDate(String dueDate) {
+    private LocalDate parseDueDate(String dueDate) {
         if (dueDate == null || dueDate.trim().isEmpty())
             return null;
 

@@ -137,7 +137,7 @@ Content-Type: application/json
   "roomieEmail": "task_roomie_accepted1@test.be"
 }
 
-### 9. Missing status → 400, "The status is required." (required for a PUT)
+### 9. Missing status → 200, "status": "pending" (PUT replaces everything: no status sent = the default value)
 PUT {{baseUrl}}/{{taskId}}
 Content-Type: application/json
 
@@ -178,7 +178,7 @@ Content-Type: application/json
   "roomieEmail": "task_roomie_accepted1@test.be"
 }
 
-### 13. Unknown roomie id → 400, "Unknown roomie."
+### 13. Unknown roomie id → 400, "A roomie of the list does not belong to your roomshare."
 PUT {{baseUrl}}/{{taskId}}
 Content-Type: application/json
 
@@ -189,7 +189,7 @@ Content-Type: application/json
   "roomieEmail": "task_roomie_accepted1@test.be"
 }
 
-### 14. Id of the owner in roomieIds → 400, "Unknown roomie."
+### 14. Id of the owner in roomieIds → 400, "A roomie of the list does not belong to your roomshare."
 PUT {{baseUrl}}/{{taskId}}
 Content-Type: application/json
 
@@ -200,7 +200,7 @@ Content-Type: application/json
   "roomieEmail": "task_roomie_accepted1@test.be"
 }
 
-### 15. Pending roomie in roomieIds → 400, "A task can only be assigned to a roomie of the roomshare."
+### 15. Pending roomie in roomieIds → 400, "A roomie of the list does not belong to your roomshare."
 PUT {{baseUrl}}/{{taskId}}
 Content-Type: application/json
 
@@ -211,7 +211,7 @@ Content-Type: application/json
   "roomieEmail": "task_roomie_accepted1@test.be"
 }
 
-### 16. Roomie of the other roomshare in roomieIds → 400, "A task can only be assigned to a roomie of the roomshare."
+### 16. Roomie of the other roomshare in roomieIds → 400, "A roomie of the list does not belong to your roomshare."
 PUT {{baseUrl}}/{{taskId}}
 Content-Type: application/json
 
@@ -282,7 +282,7 @@ Content-Type: application/json
   "roomieEmail": "task_roomie_none@test.be"
 }
 
-### 23. Unknown email → 401, "Authentication required."
+### 23. Unknown email → 401, the message of UserNotFoundException
 PUT {{baseUrl}}/{{taskId}}
 Content-Type: application/json
 
