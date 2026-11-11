@@ -73,7 +73,7 @@ public class Roomie extends Person {
         return statusMember;
     }
 
-    // Read only: a task is assigned with Task.assignRoomie (which checks the rules), never from here
+    // Read only: the roomies of a task are assigned by Task (when it is created or updated), never from here
     public Set<Task> getTasks(){
         return Collections.unmodifiableSet(tasks);
     }
@@ -181,7 +181,7 @@ public class Roomie extends Person {
     public Task findTask(Integer taskId, TaskDAO taskDAO) {
         Task task = taskDAO.findById(taskId);
 
-        if (task == null || !isAcceptedMemberOf(task.getRoomshare()))
+        if (task == null || !task.belongsTo(roomshare))
             throw new TaskNotFoundException();
 
         return task;
