@@ -12,11 +12,16 @@ import jakarta.persistence.*;
 @PrimaryKeyJoinColumn(name = "user_id", referencedColumnName = "user_id")
 public class Owner extends Person{
 
-    public Owner() {
+    protected Owner() {
     }
 
     public Owner(String lastName, String firstName, String email, String password) {
         super(lastName, firstName, email, password);
+    }
+
+    // SIGNUP : with the confirm password
+    public Owner(String lastName, String firstName, String email, String password, String confirmPassword){
+        super(lastName, firstName, email, password, confirmPassword);
     }
 
     public static Owner checkRightOwner(String ownerEmail, PersonDAO dao) {

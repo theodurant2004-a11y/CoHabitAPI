@@ -49,15 +49,11 @@ public class TaskAPI {
             // 1. Who is calling? He must be an accepted roomie
             Roomie roomie = Roomie.findAcceptedMember(req.getRoomieEmail(), personDAO, roomShareDAO);
 
-            // 2. The model checks the values, assigns the roomies and saves
-            Task task = Task.create(
-                    roomie,
-                    req.getName(),
-                    req.getDescription(),
-                    req.getDueDate(),
-                    req.getStatus(),
-                    req.getRoomieIds(),
-                    taskDAO);
+            // 2. The constructor checks every value and assigns the roomies (400 if wrong)
+            Task task = new Task(req.getName(), req.getDescription(), req.getDueDate(), req.getStatus(), req.getRoomieIds(), roomie.getRoomshare());
+
+            // 3. the task saves itself
+            task.create(taskDAO);
 
             // 201 CREATED: a new task exists in the db. We answer with a DTO, never with the real model
             return Response.status(Response.Status.CREATED)
@@ -146,15 +142,17 @@ public class TaskAPI {
             // 2. The task must be in his roomshare (404 otherwise)
             Task task = roomie.findTask(id, taskDAO);
 
-            // 3. The model checks the new values and saves
-            task.update(
+            // 3. The new values: the constructor checks them and finds the roomies (400 if one is wrong)
+            Task changes = new Task(
                     req.getName(),
                     req.getDescription(),
                     req.getDueDate(),
                     req.getStatus(),
                     req.getRoomieIds(),
-                    roomie.getRoomshare(),
-                    taskDAO);
+                    roomie.getRoomshare());
+
+            // 4. The task takes the new values and saves itself
+            task.update(changes, taskDAO);
 
             return Response.ok(Collections.singletonMap("task", toTaskResponse(task))).build();
 
