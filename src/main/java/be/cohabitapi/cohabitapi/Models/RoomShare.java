@@ -9,11 +9,11 @@ import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import be.cohabitapi.cohabitapi.DAO.EventDAO;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotMemberOfRoomShareException;
+
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.*;
-import jakarta.persistence.*;
-import jakarta.ws.rs.core.Response;
 
+import jakarta.persistence.*;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.*;
