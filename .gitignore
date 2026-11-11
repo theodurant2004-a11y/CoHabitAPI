@@ -8,7 +8,6 @@ target/
 out/
 build/
 /web/WEB-INF/web.xml
-/src/main/resources/META-INF/persistence.xml
 
 ### IntelliJ IDEA ###
 .idea/

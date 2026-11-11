@@ -15,7 +15,8 @@ public class CorsFilter implements ContainerResponseFilter {
     // Frontend origins allowed to call the API
     private static final Set<String> ALLOWED_ORIGINS = new HashSet<>(Arrays.asList(
             "http://127.0.0.1:5501",
-            "http://localhost:5501"
+            "http://localhost:5501",
+            "https://7ukjceaccheax23dnn34jqu3.dev20.woogma.com"
     ));
 
     @Override
