@@ -9,7 +9,7 @@ import java.util.Map;
 
 public final class JpaUtil {
 
-    private static final String PERSISTENCE_UNIT_NAME = "colocation-backend";
+    private static final String PERSISTENCE_UNIT_NAME = "CoHabitPU";
     private static EntityManagerFactory factory;
 
     private static EntityManagerFactory getEntityManagerFactory() {
