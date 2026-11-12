@@ -1,5 +1,7 @@
 package be.cohabitapi.cohabitapi.Models;
 
+import java.util.Objects;
+
 // A refund suggested to the roomies: it is calculated, never saved in the db
 public class Refund {
 
@@ -41,5 +43,25 @@ public class Refund {
         if (!(amount > 0))
             throw new IllegalArgumentException("The amount must be greater than 0.");
         this.amount = amount;
+    }
+
+
+    // ------------------------- Overloads -------------------------
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Refund refund = (Refund) o;
+
+        return Double.compare(refund.amount, amount) == 0 &&
+                Objects.equals(from, refund.from) &&
+                Objects.equals(to, refund.to);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(from, to, amount);
     }
 }
