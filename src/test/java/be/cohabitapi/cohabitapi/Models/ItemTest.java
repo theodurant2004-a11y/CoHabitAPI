@@ -1,11 +1,7 @@
 package be.cohabitapi.cohabitapi.Models;
 
 import be.cohabitapi.cohabitapi.DAO.ItemDAO;
-import be.cohabitapi.cohabitapi.EXCEPTION.ItemNotFoundException;
 import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -87,6 +83,9 @@ class ItemTest {
 
         item.setStatus(true);
         assertTrue(item.getStatus(), "The status must be correctly assigned to true.");
+
+        item.setStatus(false);
+        assertFalse(item.getStatus(), "The status must be able to go back to false.");
     }
 
 
@@ -96,92 +95,108 @@ class ItemTest {
     void constructor_Valid() {
         Item newItem = new Item(product, roomShare, "3 packs");
 
-        assertEquals(product, newItem.getProduct());
-        assertEquals(roomShare, newItem.getRoomShare());
-        assertEquals("3 packs", newItem.getQuantity());
-        assertFalse(newItem.getStatus());
+        assertEquals(product, newItem.getProduct(), "The product must be correctly assigned by the constructor.");
+        assertEquals(roomShare, newItem.getRoomShare(), "The room share must be correctly assigned by the constructor.");
+        assertEquals("3 packs", newItem.getQuantity(), "The quantity must be correctly assigned by the constructor.");
+        assertFalse(newItem.getStatus(), "The status must be false by default.");
+    }
+
+    @Test // If you instantiate with a null product
+    void constructor_WithNullProduct_Invalid() {
+        assertThrows(NullPointerException.class, () -> {
+            new Item(null, roomShare, "3 packs");
+        }, "The constructor must throw a NullPointerException if the product is null");
+    }
+
+    @Test // If you instantiate with a null room share
+    void constructor_WithNullRoomShare_Invalid() {
+        assertThrows(NullPointerException.class, () -> {
+            new Item(product, null, "3 packs");
+        }, "The constructor must throw a NullPointerException if the room share is null");
+    }
+
+    @Test // If you instantiate with a null quantity
+    void constructor_WithNullQuantity_Invalid() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            new Item(product, roomShare, null);
+        }, "The constructor must throw an IllegalArgumentException if the quantity is null");
+    }
+
+    @Test // If you instantiate with an empty quantity
+    void constructor_WithEmptyQuantity_Invalid() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            new Item(product, roomShare, "");
+        }, "The constructor must throw an IllegalArgumentException if the quantity is empty");
     }
 
 
-    // ------------------------ FIND BY ID ------------------------
+    // ------------------------ DAO METHODS ------------------------
 
-    @Test // If the item is successfully found
-    void findById_Found_Valid() {
-        ItemDAO mockDao = mock(ItemDAO.class);
-        when(mockDao.findById(1, 2)).thenReturn(item);
+    @Test // If you create the item in the db
+    void create_Valid() {
+        ItemDAO mockItemDao = mock(ItemDAO.class);
+        Item newItem = new Item(product, roomShare, "3 packs");
 
-        Item result = Item.findById(mockDao, 1, 2);
+        newItem.create(mockItemDao);
 
-        assertEquals(item, result, "The method must return the item if it exists.");
+        verify(mockItemDao, times(1)).create(newItem);
     }
 
-    @Test // If the item is not found
-    void findById_NotFound_Invalid() {
-        ItemDAO mockDao = mock(ItemDAO.class);
-        when(mockDao.findById(1, 2)).thenReturn(null);
+    @Test // If you update the item in the db
+    void update_Valid() {
+        ItemDAO mockItemDao = mock(ItemDAO.class);
+        Item newItem = new Item(product, roomShare, "3 packs");
 
-        assertThrows(ItemNotFoundException.class, () -> {
-            Item.findById(mockDao, 1, 2);
-        }, "The method must throw an ItemNotFoundException if the DAO returns null.");
+        newItem.update(mockItemDao);
+
+        verify(mockItemDao, times(1)).update(newItem);
     }
 
+    @Test // If you delete the item from the db
+    void delete_Valid() {
+        ItemDAO mockItemDao = mock(ItemDAO.class);
+        Item newItem = new Item(product, roomShare, "3 packs");
 
-    // ------------------------ FIND ALL ------------------------
+        newItem.delete(mockItemDao);
 
-    @Test // If the list of items is found (even if empty, it just returns it now)
-    void findAll_Valid() {
-        ItemDAO mockDao = mock(ItemDAO.class);
-        List<Item> mockList = new ArrayList<>();
-        when(mockDao.findAll(2)).thenReturn(mockList);
-
-        List<Item> result = Item.findAll(mockDao, 2);
-
-        assertEquals(mockList, result, "The method must return the list of items directly.");
+        verify(mockItemDao, times(1)).delete(newItem);
     }
 
 
-    // ------------------------ VERIFY HAS CHECKED ITEMS ------------------------
+    // ------------------------ EQUALS & HASHCODE ------------------------
 
-    @Test // If there is at least 1 checked item
-    void verifyHasCheckedItems_Valid() {
-        ItemDAO mockDao = mock(ItemDAO.class);
-        when(mockDao.countCheckedItems(2)).thenReturn(1L);
+    @Test // An item is identified by its product and its room share (the two ids)
+    void equalsAndHashCode_Valid() {
+        Product apple = new Product("Apple", "Food");
+        apple.setId(1);
+        Product sameApple = new Product("Green apple", "Fruit");
+        sameApple.setId(1);
+        Product milk = new Product("Milk", "Dairy");
+        milk.setId(2);
 
-        assertDoesNotThrow(() -> {
-            Item.verifyHasCheckedItems(mockDao, 2);
-        }, "The method must execute silently if at least 1 item is checked.");
+        RoomShare rs1 = new RoomShare();
+        rs1.setId(10);
+        RoomShare rs2 = new RoomShare();
+        rs2.setId(20);
+
+        Item item1 = new Item(apple, rs1, "1 kg");
+        Item item2 = new Item(sameApple, rs1, "5 kg");
+        item2.setStatus(true);
+        Item item3 = new Item(milk, rs1, "1 kg");
+        Item item4 = new Item(apple, rs2, "1 kg");
+
+        assertEquals(item1, item2, "Two items with the same product and the same room share must be equal, whatever the quantity or the status.");
+        assertEquals(item1.hashCode(), item2.hashCode(), "Two equal items must have the same hash code.");
+        assertNotEquals(item1, item3, "Items with different products must not be equal.");
+        assertNotEquals(item1, item4, "Items with different room shares must not be equal.");
     }
 
-    @Test // If there are 0 checked items (verify method)
-    void verifyHasCheckedItems_NoItemsChecked_Invalid() {
-        ItemDAO mockDao = mock(ItemDAO.class);
-        when(mockDao.countCheckedItems(2)).thenReturn(0L);
+    @Test // If you compare an item with itself, with null or with something that is not an item
+    void equals_WithNullOrOtherClass_Valid() {
+        Item newItem = new Item(product, roomShare, "3 packs");
 
-        assertThrows(IllegalStateException.class, () -> {
-            Item.verifyHasCheckedItems(mockDao, 2);
-        }, "The method must throw an IllegalStateException if 0 items are checked.");
-    }
-
-
-    // ------------------------ DELETE CHECKED ITEMS ------------------------
-
-    @Test // If the deletion affects at least 1 item
-    void deleteCheckedItems_Valid() {
-        ItemDAO mockDao = mock(ItemDAO.class);
-        when(mockDao.deleteCheckedItems(2)).thenReturn(3);
-
-        assertDoesNotThrow(() -> {
-            Item.deleteCheckedItems(mockDao, 2);
-        }, "The method must execute silently if at least 1 item was deleted.");
-    }
-
-    @Test // If the deletion affects 0 items
-    void deleteCheckedItems_NoItemsDeleted_Invalid() {
-        ItemDAO mockDao = mock(ItemDAO.class);
-        when(mockDao.deleteCheckedItems(2)).thenReturn(0);
-
-        assertThrows(IllegalStateException.class, () -> {
-            Item.deleteCheckedItems(mockDao, 2);
-        }, "The method must throw an IllegalStateException if no items were deleted.");
+        assertEquals(newItem, newItem, "An item must be equal to itself.");
+        assertNotEquals(null, newItem, "An item must never be equal to null.");
+        assertNotEquals("3 packs", newItem, "An item must never be equal to an object of another class.");
     }
 }

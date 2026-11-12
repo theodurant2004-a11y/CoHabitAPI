@@ -2,13 +2,8 @@ package be.cohabitapi.cohabitapi.Models;
 
 import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStringAttribute;
 
-import be.cohabitapi.cohabitapi.DAO.DAO;
-import be.cohabitapi.cohabitapi.DAO.ItemDAO;
-import be.cohabitapi.cohabitapi.DAO.PersonDAO;
-import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
-import be.cohabitapi.cohabitapi.DAO.EventDAO;
+import be.cohabitapi.cohabitapi.DAO.*;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
-import be.cohabitapi.cohabitapi.EXCEPTION.NotMemberOfRoomShareException;
 
 
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
@@ -199,50 +194,82 @@ public class RoomShare {
         throw new IllegalArgumentException("A roomie of the list does not belong to your roomshare.");
     }
 
+    // The method to return the list of all the checked items of the room share
+    public List<Item> getCheckedItems() {
+        List<Item> checked = new ArrayList<>();
+
+        for (Item item : items) {
+            if (item.getStatus())
+                checked.add(item);
+        }
+
+        return checked;
+    }
+
+    public void confirmShoppingListPurchase(Integer paidById, String description, Double amount, ExpenseDAO expenseDAO, ItemDAO itemDAO) {
+        if (getCheckedItems().isEmpty()) throw new NoItemCheckedException();
+
+        // If the roomie passed is not a member of the room share, it throws an exception
+        Roomie payer = findRoomie(paidById);
+
+        payer.addExpense(
+                description, // The description input
+                amount, // The amount input
+                LocalDate.now().toString(), // The current date in String
+                "food", // The matching category, always 'food' for that
+                getAcceptedRoomies(), // The list of members of the room share, because the expense is shared equally among all members
+                paidById, // The id of the roomie who paid, the logged-in user
+                expenseDAO // The DAO concerned
+        );
+
+        // We delete all the checked items because this means they have been found and bought
+        deleteCheckedItems(itemDAO);
+    }
+
+    // Search an item in the list of the room share and return it
+    private Item findItem(int productId) {
+        for (Item item : items) {
+            if (item.getProduct().getId().equals(productId))
+                return item;
+        }
+
+        return null;
+    }
+
     public void addItem(Product product, String quantity, ItemDAO itemDAO) {
         Item newItem = new Item(product, this, quantity);
 
         if (getItems().contains(newItem)) throw new ItemAlreadyExistsException();
 
-        items.add(newItem);
-
         newItem.create(itemDAO);
+        items.add(newItem);
     }
 
     public void modifyItem(int productId, String newQuantity, Boolean newStatus, ItemDAO itemDAO) {
-        Item targetItem = null;
+        Item item = findItem(productId);
+        if (item == null) throw new ItemNotFoundException();
 
-        for (Item item : getItems()) {
-            if (item.getProduct().getId().equals(productId)) {
-                targetItem = item;
-                break;
-            }
-        }
+        if (newQuantity != null) item.setQuantity(newQuantity);
+        if (newStatus != null) item.setStatus(newStatus);
 
-        if (targetItem == null) throw new ItemNotFoundException();
-
-        if (newQuantity != null) targetItem.setQuantity(newQuantity);
-
-        if (newStatus != null) targetItem.setStatus(newStatus);
-
-        targetItem.update(itemDAO);
+        item.update(itemDAO);
     }
 
     public void removeItem(int productId, ItemDAO itemDAO) {
-        Item targetItem = null;
+        Item item = findItem(productId);
+        if (item == null) throw new ItemNotFoundException();
 
-        for (Item item : getItems()) {
-            if (item.getProduct().getId().equals(productId)) {
-                targetItem = item;
-                break;
-            }
-        }
+        item.delete(itemDAO);
+        items.remove(item);
+    }
 
-        if (targetItem == null) throw new ItemNotFoundException();
+    public void deleteCheckedItems(ItemDAO itemDAO) {
+        int deleted = itemDAO.deleteCheckedItems(id);
 
-        items.remove(targetItem);
+        // If nothing is checked in the db
+        if (deleted == 0) throw new NoItemCheckedException();
 
-        targetItem.delete(itemDAO);
+        items.removeAll(getCheckedItems()); // Update the object too
     }
 
 
@@ -252,6 +279,12 @@ public class RoomShare {
 
     public static RoomShare findByIdWithItems(RoomShareDAO dao, Integer id) {
         RoomShare roomShare = dao.findByIdWithItems(id);
+        if (roomShare == null) throw new RoomShareNotFoundException();
+        return roomShare;
+    }
+
+    public static RoomShare findWithRoomiesAndItems(RoomShareDAO dao, Integer id) {
+        RoomShare roomShare = dao.findWithRoomiesAndItems(id);
         if (roomShare == null) throw new RoomShareNotFoundException();
         return roomShare;
     }
@@ -353,4 +386,21 @@ public class RoomShare {
     }
 
     public static RoomShare findById(RoomShareDAO dao, Integer id) { return dao.findById(id); }
+
+
+    // ------------------------- OVERLOADS --------------------------------------------------
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        RoomShare roomShare = (RoomShare) o;
+        return Objects.equals(this.invitationKey, roomShare.invitationKey);
+    }
+
+    @Override
+    public int hashCode() {
+        return invitationKey != null ? invitationKey.hashCode() : 0;
+    }
 }

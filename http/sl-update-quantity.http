@@ -1,4 +1,4 @@
-PUT http://localhost:8080/CoHabitAPI/api/shopping-list/166/481
+PUT http://localhost:8080/CoHabitAPI/api/shopping-list/166/561
 Content-Type: application/json
 
 {

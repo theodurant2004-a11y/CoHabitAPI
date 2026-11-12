@@ -1,10 +1,8 @@
 package be.cohabitapi.cohabitapi.EXCEPTION;
 
-public class ProductNotFoundException extends RuntimeException {
+public class NoItemCheckedException extends RuntimeException {
 
-    //--------------- CHECK AN ITEM -------------------
-    // If the id of the product returns nothing
-    public ProductNotFoundException() {
-        super("The product received does not exist in the list.");
-    }
+    //---------------  ------------CONFIRM THE PURCHASES-------
+    // If no item in the list has the status as found
+    public NoItemCheckedException() { super("No item is checked."); }
 }

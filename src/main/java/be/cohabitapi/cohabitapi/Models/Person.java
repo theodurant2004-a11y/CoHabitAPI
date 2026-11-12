@@ -148,6 +148,8 @@ public abstract class Person {
         dao.create(this);
     }
 
+
+
     // What the others have to give me
     public double calculateToReceive() {
         return sumInCents(expensesToReceive) / 100.0;

@@ -1,6 +1,5 @@
 package be.cohabitapi.cohabitapi.DAO;
 
-import be.cohabitapi.cohabitapi.EXCEPTION.ProductNotFoundException;
 import be.cohabitapi.cohabitapi.Models.Product;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
@@ -28,12 +27,6 @@ public class ProductDAO extends DAO<Product> {
 
                 throw e;
             }
-        }
-    }
-
-    public Product findById(int id) {
-        try (EntityManager em = JpaUtil.createEntityManager()) {
-            return em.find(Product.class, id);
         }
     }
 

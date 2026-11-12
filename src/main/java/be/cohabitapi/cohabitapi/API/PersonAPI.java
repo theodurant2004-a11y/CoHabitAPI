@@ -107,14 +107,14 @@ public class PersonAPI {
                 userResponse.setMembershipStatus(roomie.getStatusMember().name().toLowerCase(Locale.ROOT)); // PENDING becomes "pending"
                 if (roomie.getRoomshare() != null) {
                     userResponse.setRoomshareName(roomie.getRoomshare().getName());
-                    userResponse.setRoomShareId(roomie.getRoomshare().getId());
+                    userResponse.setRoomshareId(roomie.getRoomshare().getId());
                 }
             } else if (personLogin instanceof Owner owner) {
                 RoomShare roomshare = owner.findRoomshare(roomShareDAO);
                 if (roomshare != null) {
                     userResponse.setRoomshareName(roomshare.getName());
                     userResponse.setInvitationKey(roomshare.getInvitationKey());
-                    userResponse.setRoomShareId(roomshare.getId());
+                    userResponse.setRoomshareId(roomshare.getId());
                 }
             }
 

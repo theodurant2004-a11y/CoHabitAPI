@@ -60,7 +60,7 @@ public class ShoppingListAPI {
         catch (UserNotFoundException | RoomShareNotFoundException e) {
             return error(Response.Status.NOT_FOUND, e.getMessage());
         }
-        catch (NotMemberOfRoomShareException | ForbiddenRoleException e) {
+        catch (ForbiddenRoleException e) {
             return error(Response.Status.FORBIDDEN, e.getMessage());
         }
         catch (IllegalArgumentException e) {
@@ -103,7 +103,7 @@ public class ShoppingListAPI {
         catch (UserNotFoundException | RoomShareNotFoundException e) {
             return error(Response.Status.NOT_FOUND, e.getMessage());
         }
-        catch (NotMemberOfRoomShareException | ForbiddenRoleException e) {
+        catch (ForbiddenRoleException e) {
             return error(Response.Status.FORBIDDEN, e.getMessage());
         }
         catch (IllegalArgumentException e) {
@@ -137,10 +137,10 @@ public class ShoppingListAPI {
             return Response.status(Response.Status.OK).build();
         }
         catch (UserNotFoundException | RoomShareNotFoundException |
-               ItemNotFoundException | ProductNotFoundException e) {
+               ItemNotFoundException e) {
             return error(Response.Status.NOT_FOUND, e.getMessage());
         }
-        catch (NotMemberOfRoomShareException | ForbiddenRoleException e) {
+        catch (ForbiddenRoleException e) {
             return error(Response.Status.FORBIDDEN, e.getMessage());
         }
         catch (IllegalArgumentException e) {
@@ -169,10 +169,10 @@ public class ShoppingListAPI {
             return Response.status(Response.Status.NO_CONTENT).build();
         }
         catch (UserNotFoundException | RoomShareNotFoundException |
-               ItemNotFoundException | ProductNotFoundException e) {
+               ItemNotFoundException e) {
             return error(Response.Status.NOT_FOUND, e.getMessage());
         }
-        catch (NotMemberOfRoomShareException | ForbiddenRoleException e) {
+        catch (ForbiddenRoleException e) {
             return error(Response.Status.FORBIDDEN, e.getMessage());
         }
         catch (IllegalArgumentException e) {
@@ -186,59 +186,37 @@ public class ShoppingListAPI {
         }
     }
 
-    // The method to confirm the purchases, by creating an expense and delete all the checked items
+    // The method to add a purchase, and where a roomie paid the checked items of the list
+    // It creates the expense shared between the roomies and removes the bought items from the list
     @POST
-    @Path("/confirm-purchases/{userId}")
+    @Path("/{roomShareId}/purchases")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response confirmPurchases(@PathParam("userId") int userId, ConfirmPurchasesReq req) {
-        if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
+    public Response addPurchase(@PathParam("roomShareId") int roomShareId, AddPurchaseReq req) {
+        if (req == null || req.getDescription() == null || req.getAmount() == null || req.getPaidBy() == null)
+            return error(Response.Status.BAD_REQUEST, "JSON invalid.");
 
         try {
-            Roomie payer = Roomie.checkRightRoomie(personDAO, userId); // Retrieve the roomie object
-            Roomie loadedPayer = payer.loadRoomshare(roomShareDAO); // Retrieve the completed roomie object with its whole room share and its members
-            RoomShare roomShare = loadedPayer.getRoomshare(); // Isolate the room share of the roomie
+            // The room share comes with its roomies and its items
+            RoomShare roomShare = RoomShare.findWithRoomiesAndItems(roomShareDAO, roomShareId);
 
-            // Before any final transaction, check that at least one item is selected
-            // I know that it could be a method of RoomShare but if you look further than the object aspect,
-            // you will see that it's not optimized on the ORM side
-            Item.verifyHasCheckedItems(itemDAO, roomShare.getId());
+            // Check if there are checked items, create an expense and delete all the checked items
+            roomShare.confirmShoppingListPurchase(req.getPaidBy(), req.getDescription(), req.getAmount(), expenseDAO, itemDAO);
 
-            // Use of the method of the 'Manage Expenses' US to save this purchase in db
-            loadedPayer.addExpense(
-                    req.getDescription(), // The description input
-                    req.getAmount(), // The amount input
-                    java.time.LocalDate.now().toString(), // The current date in String
-                    "food", // The matching category, always 'food' for that
-                    roomShare.getAcceptedRoomies(), // The list of members of the room share, because the expense is shared equally among all members
-                    payer.getIdPerson(), // The id of the roomie who paid, the logged-in user
-                    expenseDAO // The DAO concerned
-            );
-
-            // Delete all the checked items because this means they have been found and purchased
-            // I know that it could be a method of RoomShare but if you look further than the object aspect,
-            // you will see that it's not optimized on the ORM side
-            Item.deleteCheckedItems(itemDAO, roomShare.getId());
-
-            // 'CREATED' because we create an expense in db
-            return Response.status(Response.Status.CREATED)
-                    .build();
+            return Response.status(Response.Status.CREATED).build();
         }
-        catch (UserNotFoundException | RoomShareNotFoundException |
-               ItemNotFoundException | ProductNotFoundException e) {
+        catch (RoomShareNotFoundException e) {
             return error(Response.Status.NOT_FOUND, e.getMessage());
         }
-        catch (NotInRoomshareException | NotMemberOfRoomShareException | ForbiddenRoleException e) {
-            return error(Response.Status.FORBIDDEN, e.getMessage());
+        catch (NoItemCheckedException e) {
+            // Conflict because the state of the list is wrong
+            return error(Response.Status.CONFLICT, e.getMessage());
         }
-        catch (IllegalArgumentException | IllegalStateException e) {
+        catch (IllegalArgumentException e) {
             return error(Response.Status.BAD_REQUEST, e.getMessage());
         }
-        catch (NullPointerException e) {
-            return error(Response.Status.BAD_REQUEST, "A null value was found.");
-        }
         catch (RuntimeException e) {
-            return error(Response.Status.INTERNAL_SERVER_ERROR, e.getMessage());
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Internal Server Error.");
         }
     }
 

@@ -1,7 +1,6 @@
 package be.cohabitapi.cohabitapi.Models;
 
 import be.cohabitapi.cohabitapi.DAO.ProductDAO;
-import be.cohabitapi.cohabitapi.EXCEPTION.ProductNotFoundException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -90,11 +89,11 @@ class ProductTest {
 
         assertEquals("Milk", newProduct.getName());
         assertEquals("Drinks", newProduct.getCategory());
-        assertNull(newProduct.getId()); // We check that the ID is null before the db insertion
+        assertNull(newProduct.getId());
     }
 
 
-    // ------------------------ FIND OR CREATE ------------------------
+    // ------------------------ DAO WRAPPER METHODS (BUSINESS RULES) ------------------------
 
     @Test // If the product is found in db, it returns it without creating a new one
     void findOrCreate_ProductExists_Valid() {
@@ -106,8 +105,7 @@ class ProductTest {
         Product result = Product.findOrCreate(mockDao, "Apple", "Food");
 
         assertEquals(existingProduct, result, "The method must return the existing product.");
-
-        verify(mockDao, never()).create(any(Product.class)); // Verify that the create method from the DAO was never called
+        verify(mockDao, never()).create(any(Product.class));
     }
 
     @Test // If the product is not found in db, it creates it and returns it
@@ -121,34 +119,6 @@ class ProductTest {
         assertNotNull(result, "The method must return a newly created product.");
         assertEquals("Apple", result.getName());
         assertEquals("Food", result.getCategory());
-
-        // Verify that the create method from the DAO was called exactly 1 time
         verify(mockDao, times(1)).create(any(Product.class));
-    }
-
-
-    // ------------------------ FIND BY ID ------------------------
-
-    @Test // If the product is successfully found by its ID
-    void findById_Found_Valid() {
-        ProductDAO mockDao = mock(ProductDAO.class);
-        Product existingProduct = new Product("Apple", "Food");
-
-        when(mockDao.findById(1)).thenReturn(existingProduct);
-
-        Product result = Product.findById(mockDao, 1);
-
-        assertEquals(existingProduct, result, "The method must return the product if it exists.");
-    }
-
-    @Test // If the product is not found by its ID
-    void findById_NotFound_Invalid() {
-        ProductDAO mockDao = mock(ProductDAO.class);
-
-        when(mockDao.findById(1)).thenReturn(null);
-
-        assertThrows(ProductNotFoundException.class, () -> {
-            Product.findById(mockDao, 1);
-        }, "The method must throw a ProductNotFoundException if the DAO returns null.");
     }
 }

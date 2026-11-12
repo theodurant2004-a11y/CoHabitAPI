@@ -3,7 +3,7 @@ package be.cohabitapi.cohabitapi.DTO;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class ConfirmPurchasesReq {
+public class AddPurchaseReq {
     private String description;
     private Double amount;
     private Integer paidBy;
@@ -26,6 +26,6 @@ public class ConfirmPurchasesReq {
 
     public void setPaidBy(Integer paidBy) { this.paidBy = paidBy; }
 
-    public ConfirmPurchasesReq() {
+    public AddPurchaseReq() {
     }
 }

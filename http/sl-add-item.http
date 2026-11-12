@@ -2,7 +2,7 @@ POST http://localhost:8080/CoHabitAPI/api/shopping-list/166
 Content-Type: application/json
 
 {
-  "name": "Poulet Grillé",
-  "category": "Volaille",
-  "quantity": "3"
+  "name": "Mimolette",
+  "category": "Fromagerie",
+  "quantity": "1kg"
 }

@@ -3,10 +3,8 @@ package be.cohabitapi.cohabitapi.Models;
 import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStringAttribute;
 
 import be.cohabitapi.cohabitapi.DAO.ItemDAO;
-import be.cohabitapi.cohabitapi.EXCEPTION.ItemNotFoundException;
 import jakarta.persistence.*;
 
-import java.util.List;
 import java.util.Objects;
 
 @Entity
@@ -89,33 +87,11 @@ public class Item {
     // Create the item in db
     public void create(ItemDAO dao) { dao.create(this); }
 
-    // Search an item by its id (product and room share) and returns it
-    public static Item findById(ItemDAO dao, int productId, int roomShareId) {
-        Item item = dao.findById(productId, roomShareId);
-        if (item == null) throw new ItemNotFoundException();
-        return item;
-    }
-
-    // Return all the items of the room share
-    public static List<Item> findAll(ItemDAO dao, int roomShareId) { return dao.findAll(roomShareId); }
-
     // Update the status or the quantity
     public void update(ItemDAO dao) { dao.update(this); }
 
     // Remove the item from the room share (not delete the product)
     public void delete(ItemDAO dao) { dao.delete(this); }
-
-    public static void verifyHasCheckedItems(ItemDAO dao, int roomShareId) {
-        long count = dao.countCheckedItems(roomShareId);
-        if (count == 0) {
-            throw new IllegalStateException("No item is checked");
-        }
-    }
-
-    public static void deleteCheckedItems(ItemDAO dao, int roomShareId) {
-        int itemsDeleted = dao.deleteCheckedItems(roomShareId);
-        if (itemsDeleted < 1) throw new IllegalStateException("No item is checked.");
-    }
 
 
     // ------------------------- OVERLOADS --------------------------------------------------

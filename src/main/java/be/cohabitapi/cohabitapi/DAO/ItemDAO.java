@@ -34,23 +34,6 @@ public class ItemDAO extends DAO<Item> {
         }
     }
 
-    public Item findById(int productId, int roomShareId) {
-        try (EntityManager em = JpaUtil.createEntityManager()) {
-            ItemId id = new ItemId(productId, roomShareId);
-            return em.find(Item.class, id);
-        }
-    }
-
-    public List<Item> findAll(Integer roomShareId) {
-        try (EntityManager em = JpaUtil.createEntityManager()) {
-            return em.createQuery(
-                    // JOIN FETCH load the products by the way !
-                            "SELECT i FROM Item i JOIN FETCH i.product WHERE i.roomShare.id = :roomShareId", Item.class)
-                    .setParameter("roomShareId", roomShareId)
-                    .getResultList(); // Returns an empty list if nothing is found
-        }
-    }
-
     // In the application, you can modify the quantity or the found status
     // We therefore receive a complete Item object that contains whether
     // a modification of the quantity or the found status
@@ -88,15 +71,6 @@ public class ItemDAO extends DAO<Item> {
                 if (transaction.isActive()) transaction.rollback();
                 throw e;
             }
-        }
-    }
-
-    public long countCheckedItems(int roomShareId) {
-        try (EntityManager em = JpaUtil.createEntityManager()) {
-            return em.createQuery(
-                            "SELECT COUNT(i) FROM Item i WHERE i.roomShare.id = :roomShareId AND i.status = true", Long.class)
-                    .setParameter("roomShareId", roomShareId)
-                    .getSingleResult();
         }
     }
 
