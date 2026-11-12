@@ -5,6 +5,6 @@ public class UserNotFoundException extends RuntimeException{
 //--------------- CREATE A ROOMSHARE -------------------
     // Request user email exception
     public UserNotFoundException() {
-        super("The received user does not exist");
+        super("The received user does not exist.");
     }
 }

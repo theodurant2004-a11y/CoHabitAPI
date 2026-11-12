@@ -2,15 +2,14 @@ package be.cohabitapi.cohabitapi.Models;
 
 import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStringAttribute;
 
-import be.cohabitapi.cohabitapi.DAO.DAO;
-import be.cohabitapi.cohabitapi.DAO.PersonDAO;
-import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
-import be.cohabitapi.cohabitapi.DAO.EventDAO;
+import be.cohabitapi.cohabitapi.DAO.*;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
-import be.cohabitapi.cohabitapi.EXCEPTION.NotMemberOfRoomShareException;
-import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
-import jakarta.persistence.*;
 
+
+import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
+import be.cohabitapi.cohabitapi.EXCEPTION.*;
+
+import jakarta.persistence.*;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.*;
@@ -58,6 +57,10 @@ public class RoomShare {
     // Events live and die with their roomshare, its a composition
     @OneToMany(mappedBy = "roomshare", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<Event> events = new ArrayList<>();
+
+    @OneToMany(mappedBy = "roomShare")
+    private List<Item> items = new ArrayList<>();
+
 
     // ------------------------- Getters and Setters --------------------------------------------------
 
@@ -112,6 +115,11 @@ public class RoomShare {
     public List<Event> getEvents() { return Collections.unmodifiableList(events); }
 
 
+    public List<Item> getItems() {
+        return Collections.unmodifiableList(items);
+    }
+
+
     // ------------------------- Constructors --------------------------------------------------
 
     // Only for Hibernate
@@ -130,17 +138,6 @@ public class RoomShare {
 
 
     // ------------------------- Utility methods --------------------------------------------------
-
-    public static RoomShare findRoomShareByRoomie(PersonDAO personDAO, RoomShareDAO roomShareDAO, int userId)
-    {
-        Roomie roomie = Roomie.checkRightRoomie(personDAO, userId);
-        if (roomie.getStatusMember() != MembershipStatus.ACCEPTED) throw new NotMemberOfRoomShareException();
-        // We do not juste use roomie.getRoomShare(),
-        // because we're not sure that
-        // this is a whole object well-completed
-        // So, we regenerate it with findById()
-        return RoomShare.findById(roomShareDAO, roomie.getRoomshare().getId());
-    }
 
     // We create our own method to generate de invitation key
     // We choose to have an invitation key of 6 characters
@@ -197,6 +194,84 @@ public class RoomShare {
         throw new IllegalArgumentException("A roomie of the list does not belong to your roomshare.");
     }
 
+    // The method to return the list of all the checked items of the room share
+    public List<Item> getCheckedItems() {
+        List<Item> checked = new ArrayList<>();
+
+        for (Item item : items) {
+            if (item.getStatus())
+                checked.add(item);
+        }
+
+        return checked;
+    }
+
+    public void confirmShoppingListPurchase(Integer paidById, String description, Double amount, ExpenseDAO expenseDAO, ItemDAO itemDAO) {
+        if (getCheckedItems().isEmpty()) throw new NoItemCheckedException();
+
+        // If the roomie passed is not a member of the room share, it throws an exception
+        Roomie payer = findRoomie(paidById);
+
+        payer.addExpense(
+                new Expense(
+                    description, // The description input
+                    amount, // The amount input
+                    LocalDate.now().toString(), // The current date in String
+                    ExpenseCategory.FOOD.getCode()), // The matching category, always 'food' for that
+                getAcceptedRoomies(), // The list of members of the room share, because the expense is shared equally among all members
+                expenseDAO // The DAO concerned
+        );
+
+        // We delete all the checked items because this means they have been found and bought
+        deleteCheckedItems(itemDAO);
+    }
+
+    // Search an item in the list of the room share and return it
+    private Item findItem(int productId) {
+        for (Item item : items) {
+            if (item.getProduct().getId().equals(productId))
+                return item;
+        }
+
+        return null;
+    }
+
+    public void addItem(Product product, String quantity, ItemDAO itemDAO) {
+        Item newItem = new Item(product, this, quantity);
+
+        if (getItems().contains(newItem)) throw new ItemAlreadyExistsException();
+
+        newItem.create(itemDAO);
+        items.add(newItem);
+    }
+
+    public void modifyItem(int productId, String newQuantity, Boolean newStatus, ItemDAO itemDAO) {
+        Item item = findItem(productId);
+        if (item == null) throw new ItemNotFoundException();
+
+        if (newQuantity != null) item.setQuantity(newQuantity);
+        if (newStatus != null) item.setStatus(newStatus);
+
+        item.update(itemDAO);
+    }
+
+    public void removeItem(int productId, ItemDAO itemDAO) {
+        Item item = findItem(productId);
+        if (item == null) throw new ItemNotFoundException();
+
+        item.delete(itemDAO);
+        items.remove(item);
+    }
+
+    public void deleteCheckedItems(ItemDAO itemDAO) {
+        int deleted = itemDAO.deleteCheckedItems(id);
+
+        // If nothing is checked in the db
+        if (deleted == 0) throw new NoItemCheckedException();
+
+        items.removeAll(getCheckedItems()); // Update the object too
+    }
+
 
     // Same thing for several roomies: the ids sent by the front become objects
     // Each roomie is searched in the list of this roomshare, so they are all accepted roomies of it
@@ -216,6 +291,19 @@ public class RoomShare {
     // ------------------------- DAO methods --------------------------------------------------
 
     public void create(DAO<RoomShare> dao) { dao.create(this); }
+
+    public static RoomShare findByIdWithItems(RoomShareDAO dao, Integer id) {
+        RoomShare roomShare = dao.findByIdWithItems(id);
+        if (roomShare == null) throw new RoomShareNotFoundException();
+        return roomShare;
+    }
+
+    public static RoomShare findWithRoomiesAndItems(RoomShareDAO dao, Integer id) {
+        RoomShare roomShare = dao.findWithRoomiesAndItems(id);
+        if (roomShare == null) throw new RoomShareNotFoundException();
+        return roomShare;
+    }
+
 
     // ------------------------- MEMBERS OF A ROOMSHARE --------------------------------------------------
 
@@ -313,4 +401,21 @@ public class RoomShare {
     }
 
     public static RoomShare findById(RoomShareDAO dao, Integer id) { return dao.findById(id); }
+
+
+    // ------------------------- OVERLOADS --------------------------------------------------
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        RoomShare roomShare = (RoomShare) o;
+        return Objects.equals(this.invitationKey, roomShare.invitationKey);
+    }
+
+    @Override
+    public int hashCode() {
+        return invitationKey != null ? invitationKey.hashCode() : 0;
+    }
 }

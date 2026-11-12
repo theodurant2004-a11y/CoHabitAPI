@@ -1,0 +1,6 @@
+PUT http://localhost:8080/CoHabitAPI/api/shopping-list/166/562
+Content-Type: application/json
+
+{
+  "status": true
+}

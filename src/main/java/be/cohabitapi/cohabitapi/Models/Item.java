@@ -4,9 +4,7 @@ import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStri
 
 import be.cohabitapi.cohabitapi.DAO.ItemDAO;
 import jakarta.persistence.*;
-import org.glassfish.jersey.uri.PathPattern;
 
-import java.util.List;
 import java.util.Objects;
 
 @Entity
@@ -28,7 +26,7 @@ public class Item {
     @JoinColumn(name = "roomshare_id", nullable = false)
     private RoomShare roomShare;
 
-    @Column(name = "item_quantity", length = 50)
+    @Column(name = "item_quantity", length = 50, nullable = false)
     private String quantity;
 
     @Column(name = "item_is_found", nullable = false)
@@ -84,22 +82,32 @@ public class Item {
     }
 
 
-    // ------------------------- Utility methods --------------------------------------------------
-
-
-
     // ------------------------- DAO methods --------------------------------------------------
 
+    // Create the item in db
     public void create(ItemDAO dao) { dao.create(this); }
 
-    public static Item findById(ItemDAO dao, int productId, int roomShareId) { return dao.findById(productId, roomShareId); }
-
-    public static List<Item> findAll(ItemDAO dao, int roomShareId) { return dao.findAll(roomShareId); }
-
+    // Update the status or the quantity
     public void update(ItemDAO dao) { dao.update(this); }
 
+    // Remove the item from the room share (not delete the product)
     public void delete(ItemDAO dao) { dao.delete(this); }
 
-    public static void deleteCheckedItems(ItemDAO dao, int roomShareId) { dao.deleteCheckedItems(roomShareId); }
 
+    // ------------------------- OVERLOADS --------------------------------------------------
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Item item = (Item) o;
+        return Objects.equals(this.product.getId(), item.product.getId()) &&
+                Objects.equals(this.roomShare.getId(), item.roomShare.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(product.getId(), roomShare.getId());
+    }
 }

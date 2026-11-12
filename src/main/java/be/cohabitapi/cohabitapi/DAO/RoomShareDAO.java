@@ -1,13 +1,11 @@
 package be.cohabitapi.cohabitapi.DAO;
 
-import be.cohabitapi.cohabitapi.EXCEPTION.RoomShareNotFoundException;
 import be.cohabitapi.cohabitapi.Models.RoomShare;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 import be.cohabitapi.cohabitapi.Models.Owner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
-import jakarta.persistence.NoResultException;
 import java.util.List;
 
 @ApplicationScoped
@@ -35,9 +33,7 @@ public class RoomShareDAO extends DAO<RoomShare> {
 
     public RoomShare findById(Integer id){
         try (EntityManager em = JpaUtil.createEntityManager()) {
-            RoomShare rs = em.find(RoomShare.class, id);
-            if (rs == null) throw new RoomShareNotFoundException();
-            return rs;
+            return em.find(RoomShare.class, id);
         }
     }
 
@@ -54,6 +50,32 @@ public class RoomShareDAO extends DAO<RoomShare> {
         }
     }
 
+    public RoomShare findByIdWithItems(Integer id) {
+        try (EntityManager em = JpaUtil.createEntityManager()) {
+            return loadWithItems(em, id);
+        }
+    }
+
+    public RoomShare findWithRoomies(Integer id) {
+        try (EntityManager em = JpaUtil.createEntityManager()) {
+            return loadWithRoomies(em, id);
+        }
+    }
+
+    // We separate the find part and the load part
+    // to use the same room share for the two methods called here
+    // because, we create only one Entity Manager
+    public RoomShare findWithRoomiesAndItems(Integer id) {
+        try (EntityManager em = JpaUtil.createEntityManager()) {
+            RoomShare roomShare = loadWithRoomies(em, id);
+
+            if (roomShare != null)
+                loadWithItems(em, id);
+
+            return roomShare;
+        }
+    }
+
     // CREATE A ROOMSHARE : Checks if the invitation key is already taken
     public boolean keyIsAlreadyUsed(String key){
 
@@ -67,9 +89,8 @@ public class RoomShareDAO extends DAO<RoomShare> {
 
     // This method is to join a roomshare : it finds a roomshare with its invitation key (null if no roomshare uses it)
     public RoomShare findByInvitationKey(String key) {
-        EntityManager em = JpaUtil.createEntityManager();
 
-        try {
+        try (EntityManager em = JpaUtil.createEntityManager()) {
             List<RoomShare> results = em.createQuery(
                             "SELECT r FROM RoomShare r WHERE r.invitationKey = :key", RoomShare.class)
                     .setParameter("key", key)
@@ -77,44 +98,45 @@ public class RoomShareDAO extends DAO<RoomShare> {
 
             // The key is unique in the db, so there is at most one result
             return results.isEmpty() ? null : results.get(0);
-        } finally {
-            em.close();
         }
+    }
+
+    private RoomShare loadWithItems(EntityManager em, Integer id) {
+        List<RoomShare> results = em.createQuery(
+                        "SELECT DISTINCT rs FROM RoomShare rs LEFT JOIN FETCH rs.items i LEFT JOIN FETCH i.product WHERE rs.id = :id", RoomShare.class)
+                .setParameter("id", id)
+                .getResultList();
+
+        return results.isEmpty() ? null : results.get(0);
     }
 
     // Loads a roomshare with its roomies and all their expenses
     // 3 queries with the same em because Hibernate can't fetch two lists in one query
-    public RoomShare findWithRoomies(Integer id) {
-        EntityManager em = JpaUtil.createEntityManager();
+    public RoomShare loadWithRoomies(EntityManager em, Integer id) {
+        // The roomshare and its roomies
+        List<RoomShare> found = em.createQuery(
+                        "SELECT DISTINCT rs FROM RoomShare rs LEFT JOIN FETCH rs.roomies WHERE rs.id = :id",
+                        RoomShare.class)
+                .setParameter("id", id)
+                .getResultList();
 
-        try {
-            // The roomshare and its roomies
-            List<RoomShare> found = em.createQuery(
-                            "SELECT DISTINCT rs FROM RoomShare rs LEFT JOIN FETCH rs.roomies WHERE rs.id = :id",
-                            RoomShare.class)
-                    .setParameter("id", id)
-                    .getResultList();
+        if (found.isEmpty())
+            return null;
 
-            if (found.isEmpty())
-                return null;
+        // The expenses the roomies have to pay (they fill the lists of the roomies loaded above)
+        em.createQuery(
+                        "SELECT DISTINCT r FROM Roomie r LEFT JOIN FETCH r.expensesToPay WHERE r.roomshare.id = :id",
+                        Roomie.class)
+                .setParameter("id", id)
+                .getResultList();
 
-            // The expenses the roomies have to pay (they fill the lists of the roomies loaded above)
-            em.createQuery(
-                            "SELECT DISTINCT r FROM Roomie r LEFT JOIN FETCH r.expensesToPay WHERE r.roomshare.id = :id",
-                            Roomie.class)
-                    .setParameter("id", id)
-                    .getResultList();
+        // The expenses the roomies have to receive
+        em.createQuery(
+                        "SELECT DISTINCT r FROM Roomie r LEFT JOIN FETCH r.expensesToReceive WHERE r.roomshare.id = :id",
+                        Roomie.class)
+                .setParameter("id", id)
+                .getResultList();
 
-            // The expenses the roomies have to receive
-            em.createQuery(
-                            "SELECT DISTINCT r FROM Roomie r LEFT JOIN FETCH r.expensesToReceive WHERE r.roomshare.id = :id",
-                            Roomie.class)
-                    .setParameter("id", id)
-                    .getResultList();
-
-            return found.get(0);
-        } finally {
-            em.close();
-        }
+        return found.get(0);
     }
 }

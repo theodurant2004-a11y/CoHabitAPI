@@ -17,6 +17,8 @@ import be.cohabitapi.cohabitapi.EXCEPTION.ExpenseNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotCreditorException;
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
