@@ -10,6 +10,7 @@ import be.cohabitapi.cohabitapi.DAO.EventDAO;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotMemberOfRoomShareException;
 
+
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.*;
 

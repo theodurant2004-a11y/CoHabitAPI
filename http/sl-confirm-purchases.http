@@ -1,7 +1,0 @@
-POST http://localhost:8080/CoHabitAPI/api/shopping-list/confirm-purchases/382
-Content-Type: application/json
-
-{
-  "description": "Vide",
-  "amount": 15
-}
