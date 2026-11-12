@@ -1,0 +1,103 @@
+# Base URL of the API (Tomcat Application context must be /CoHabitAPI)
+@baseUrl = http://localhost:8080/CoHabitAPI/api/shopping-list
+
+# Before running:
+# - Tomcat must have the environment variables ai_key and ai_model (next to db_url / db_user / db_mdp)
+# - put here the id of a room share that has at least one unchecked item (sl-add-item.http adds one)
+@roomShareId = 166
+
+# A tiny white JPEG (16 x 16) in base64: enough to test the route without a real receipt
+@blankImage = /9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAAQABADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD06iiigD//2Q==
+
+### 1. Scan OK with the blank photo → 200, {"itemIds": [], "total": null}
+# The AI is called (the list has unchecked items) and should find nothing on a white photo
+POST {{baseUrl}}/{{roomShareId}}/scan
+Content-Type: application/json
+
+{
+  "image": "{{blankImage}}"
+}
+
+### 2. Scan OK with a real receipt → 200, {"itemIds": [ids of the unchecked items found], "total": amount of the receipt}
+# Replace PASTE_BASE64_HERE with the base64 of a photo (JPEG) of a receipt. To copy it:
+#   Windows (PowerShell): [Convert]::ToBase64String([IO.File]::ReadAllBytes("receipt.jpg")) | Set-Clipboard
+#   macOS / Linux:        base64 -w0 receipt.jpg   (on macOS: base64 -i receipt.jpg | pbcopy)
+# Nothing changes in db: run sl-get-items.http after this request, the items are still unchecked
+POST {{baseUrl}}/{{roomShareId}}/scan
+Content-Type: application/json
+
+{
+  "image": "PASTE_BASE64_HERE"
+}
+
+### 3. Unknown fields are ignored → 200, same answer as the request 1
+POST {{baseUrl}}/{{roomShareId}}/scan
+Content-Type: application/json
+
+{
+  "image": "{{blankImage}}",
+  "total": 999,
+  "itemIds": [1, 2, 3]
+}
+
+### 4. Every item of the list is already checked (or the list is empty) → 200, {"itemIds": [], "total": null}
+# The AI is not called: it also works without ai_key
+# Before running: check every item of the room share (sl-check-item.http)
+POST {{baseUrl}}/{{roomShareId}}/scan
+Content-Type: application/json
+
+{
+  "image": "{{blankImage}}"
+}
+
+### 5. Image missing → 400, "The image cannot be null"
+POST {{baseUrl}}/{{roomShareId}}/scan
+Content-Type: application/json
+
+{
+}
+
+### 6. Image null → 400, "The image cannot be null"
+POST {{baseUrl}}/{{roomShareId}}/scan
+Content-Type: application/json
+
+{
+  "image": null
+}
+
+### 7. Image empty → 400, "The image cannot be empty"
+POST {{baseUrl}}/{{roomShareId}}/scan
+Content-Type: application/json
+
+{
+  "image": "   "
+}
+
+### 8. No body → 400, "JSON invalid."
+POST {{baseUrl}}/{{roomShareId}}/scan
+Content-Type: application/json
+
+### 9. Broken JSON → 400, "JSON invalid."
+POST {{baseUrl}}/{{roomShareId}}/scan
+Content-Type: application/json
+
+{
+  "image": "{{blankImage}}"
+
+### 10. Unknown room share → 404, "The room share does not exist." (the message of RoomShareNotFoundException)
+POST {{baseUrl}}/999999/scan
+Content-Type: application/json
+
+{
+  "image": "{{blankImage}}"
+}
+
+### 11. AI unavailable → 503, "Receipt scan is unavailable, please fill it in manually."
+# To reproduce: remove ai_key (or put a wrong key) in the environment variables of Tomcat, restart, then run this request
+# Same answer when the quota is exceeded (HTTP 429 from the AI) or when the AI does not answer within 20 seconds
+POST {{baseUrl}}/{{roomShareId}}/scan
+Content-Type: application/json
+
+{
+  "image": "{{blankImage}}"
+}
