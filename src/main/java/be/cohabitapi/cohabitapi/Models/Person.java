@@ -1,8 +1,11 @@
 package be.cohabitapi.cohabitapi.Models;
 
 import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
+import be.cohabitapi.cohabitapi.EXCEPTION.ExpenseNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.InvalidCredentialsException;
+import be.cohabitapi.cohabitapi.EXCEPTION.NotCreditorException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
+import be.cohabitapi.cohabitapi.DAO.ExpenseDAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
 import jakarta.persistence.*;
@@ -187,6 +190,27 @@ public abstract class Person {
 
         expensesToReceive.add(expense);
         expense.setCreditor(this);
+    }
+
+    // The person says that an expense is paid
+    // Only the person who is owed the money (the creditor) can do it
+    // It is in Person because the creditor can be a roomie (shared expense) or the owner (rent, bill)
+    public void settleExpense(int expenseId, ExpenseDAO expenseDAO) {
+        Expense expense = expenseDAO.findById(expenseId);
+
+        // The id does not exist
+        if (expense == null)
+            throw new ExpenseNotFoundException();
+
+        // We compare with equals
+        // and not with the ids so it also works for objects that are not in the db yet (the tests)
+        Person creditor = expense.getCreditor();
+        if (creditor == null || !this.equals(creditor))
+            throw new NotCreditorException();
+
+        // The expense changes its own status, then we save it
+        expense.settle();
+        expenseDAO.update(expense);
     }
 
     private static String hashPassword(String password){

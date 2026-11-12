@@ -63,6 +63,24 @@ public class Owner extends Person{
         return roomshare;
     }
 
+    // EXPENSES : the roomshare this owner created, loaded with its roomies and the charges (rent and bills)
+    // Same idea as Roomie.loadRoomshare: the DAO builds new objects, so everything after is called on them
+    public RoomShare findRoomshareWithCharges(RoomShareDAO dao) {
+        RoomShare roomshare = dao.findByOwner(this);
+
+        // if the owner has not created his roomshare yet he has no charge to publish
+        if (roomshare == null)
+            throw new NotInRoomshareException();
+
+        RoomShare loaded = dao.findWithCharges(roomshare.getId());
+
+        // Not found anymore: the roomshare was deleted between the two queries
+        if (loaded == null)
+            throw new NotInRoomshareException();
+
+        return loaded;
+    }
+
     // An owner never owes money, so his balance is only what he has to receive
     @Override
     public double calculateBalance() {
