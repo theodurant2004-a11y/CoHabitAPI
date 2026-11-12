@@ -67,7 +67,7 @@ public class Product {
 
     // Search a product and if it exists, it returns it but if not, it creates it
     public static Product findOrCreate(ProductDAO dao, String name, String category) {
-        Product product = dao.findByNameAndCategory(name, category);
+        Product product = dao.findByNameAndCategory(name.trim(), category.trim());
         if (product == null) {
             product = new Product(name, category);
             dao.create(product);
