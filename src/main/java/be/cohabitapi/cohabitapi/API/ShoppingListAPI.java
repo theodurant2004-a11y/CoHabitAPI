@@ -197,8 +197,8 @@ public class ShoppingListAPI {
             Expense expense = new Expense(
                     req.getDescription(),
                     req.getAmount(),
-                    java.time.LocalDate.now().toString(),
-                    ExpenseCategory.FOOD.getCode());
+                    java.time.LocalDate.now(),
+                    ExpenseCategory.FOOD);
 
             loadedBuyer.addExpense(
                     expense,
