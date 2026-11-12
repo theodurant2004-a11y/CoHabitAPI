@@ -403,6 +403,66 @@ public class RoomShare {
     public static RoomShare findById(RoomShareDAO dao, Integer id) { return dao.findById(id); }
 
 
+    // ------------------------- CHARGES OF THE OWNER (rent and bills) --------------------------------------------------
+
+    // PUBLISH A CHARGE : the owner of this roomshare publishes a rent or a bill
+    // The charge already has its parts (one for each roomie who has to pay): here the owner becomes their creditor
+    public void addCharge(Charge charge, ExpenseDAO expenseDAO) {
+        if (charge == null)
+            throw new IllegalArgumentException("The charge cannot be null");
+
+        // The roomies who have to pay must be accepted members of this roomshare
+        List<Roomie> members = getAcceptedRoomies();
+        for (Expense part : charge.getParts()) {
+            if (!members.contains(part.getDebtor()))
+                throw new IllegalArgumentException("A roomie of the list does not belong to your roomshare.");
+        }
+
+        // The parts of a charge have no link between them in the db (see Charge.matches)
+        // So two charges with the same name, category and due date would be mixed in the list: we refuse the second one
+        if (findCharges().contains(charge))
+            throw new ChargeAlreadyExistsException();
+
+        // The owner is owed every part
+        for (Expense part : charge.getParts()) {
+            owner.addExpenseToReceive(part);
+        }
+
+        // All the parts are saved in one transaction: everything is saved, or nothing
+        expenseDAO.createAll(charge.getParts());
+    }
+
+    // CHARGES LIST : the rents and the bills of the owner
+    // The owner reads his own list of expenses to receive, and the parts that go together are grouped in a charge
+    public List<Charge> findCharges() {
+        List<Expense> parts = new ArrayList<>(owner.getExpensesToReceive());
+
+        // The last due date first. For the same due date, the oldest part first (the smallest id)
+        // An expense that is not saved yet has no id, so we put it last instead of failing
+        parts.sort(Comparator.comparing(Expense::getDueDate, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(Expense::getId, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        List<Charge> charges = new ArrayList<>();
+        for (Expense part : parts) {
+            // Is the charge of this part already in the list?
+            Charge found = null;
+            for (Charge charge : charges) {
+                if (charge.matches(part))
+                    found = charge;
+            }
+
+            if (found == null) {
+                // First part of a charge we did not see yet
+                charges.add(new Charge(part));
+            } else {
+                found.addPart(part);
+            }
+        }
+
+        return charges;
+    }
+
+
     // ------------------------- OVERLOADS --------------------------------------------------
 
     @Override

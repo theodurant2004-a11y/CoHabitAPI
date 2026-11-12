@@ -76,6 +76,25 @@ public class RoomShareDAO extends DAO<RoomShare> {
         }
     }
 
+    // EXPENSES OF THE OWNER : the roomshare with its roomies, their expenses and what its owner has to receive
+    // Same em for the two parts, so the owner filled by the last query is the owner of the roomshare
+    public RoomShare findWithCharges(Integer id) {
+        try (EntityManager em = JpaUtil.createEntityManager()) {
+            RoomShare roomShare = loadWithRoomies(em, id);
+
+            if (roomShare != null) {
+                // The parts of the rents and the bills (they fill the list of the owner loaded with the roomshare)
+                em.createQuery(
+                                "SELECT DISTINCT o FROM Owner o LEFT JOIN FETCH o.expensesToReceive WHERE o.idPerson = :ownerId",
+                                Owner.class)
+                        .setParameter("ownerId", roomShare.getOwner().getIdPerson())
+                        .getResultList();
+            }
+
+            return roomShare;
+        }
+    }
+
     // CREATE A ROOMSHARE : Checks if the invitation key is already taken
     public boolean keyIsAlreadyUsed(String key){
 

@@ -1,0 +1,221 @@
+# Base URL of the API (Tomcat Application context must be /CoHabitAPI)
+@baseUrl = http://localhost:8080/CoHabitAPI/api/expenses/owner
+
+# Alice is the owner and Bob is a roomie of her roomshare (test users of the db)
+# Replace the ids of the roomies (roomieIds) and of the part ({id}/settle) by the ones of your db:
+# the first GET below shows them (members[].id and charges[].parts[].id)
+@owner = alice@mail.be
+@roomie = bob@mail.be
+@roomieId = 2
+@partId = 1
+
+
+# ---------------------------------------------------------------- GET : my charges
+
+### The roomies of the forms and the charges → 200
+GET {{baseUrl}}?email={{owner}}
+
+### Email in capital letters and with spaces (normalized by the model) → 200
+GET {{baseUrl}}?email=%20%20ALICE@MAIL.BE%20
+
+### No email → 400
+GET {{baseUrl}}
+
+### Unknown email → 401
+GET {{baseUrl}}?email=nobody@mail.be
+
+### A roomie cannot see the charges of the owner → 403
+GET {{baseUrl}}?email={{roomie}}
+
+
+# ---------------------------------------------------------------- POST : publish a charge
+
+### Rent every month → 201
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "amount": 850,
+  "dueDate": "2026-12-05",
+  "category": "rent",
+  "recurrence": "monthly",
+  "roomieIds": [{{roomieId}}],
+  "ownerEmail": "{{owner}}"
+}
+
+### The same rent a second time (same due date) → 409
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "amount": 850,
+  "dueDate": "2026-12-05",
+  "category": "rent",
+  "recurrence": "monthly",
+  "roomieIds": [{{roomieId}}],
+  "ownerEmail": "{{owner}}"
+}
+
+### Bill without recurrence (published once) → 201
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Electricity",
+  "amount": 90.50,
+  "dueDate": "2026-11-28",
+  "category": "bills",
+  "roomieIds": [{{roomieId}}],
+  "ownerEmail": "{{owner}}"
+}
+
+### Bill without title → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "   ",
+  "amount": 90,
+  "dueDate": "2026-11-29",
+  "category": "bills",
+  "roomieIds": [{{roomieId}}],
+  "ownerEmail": "{{owner}}"
+}
+
+### Amount of 0 → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Internet",
+  "amount": 0,
+  "dueDate": "2026-11-29",
+  "category": "bills",
+  "roomieIds": [{{roomieId}}],
+  "ownerEmail": "{{owner}}"
+}
+
+### No due date → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Internet",
+  "amount": 40,
+  "category": "bills",
+  "roomieIds": [{{roomieId}}],
+  "ownerEmail": "{{owner}}"
+}
+
+### Due date that is not a date → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Internet",
+  "amount": 40,
+  "dueDate": "28/11/2026",
+  "category": "bills",
+  "roomieIds": [{{roomieId}}],
+  "ownerEmail": "{{owner}}"
+}
+
+### A category that is not a rent or a bill → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Pizza",
+  "amount": 40,
+  "dueDate": "2026-11-29",
+  "category": "food",
+  "roomieIds": [{{roomieId}}],
+  "ownerEmail": "{{owner}}"
+}
+
+### Unknown recurrence → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "amount": 850,
+  "dueDate": "2027-01-05",
+  "category": "rent",
+  "recurrence": "weekly",
+  "roomieIds": [{{roomieId}}],
+  "ownerEmail": "{{owner}}"
+}
+
+### No roomie selected → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "amount": 850,
+  "dueDate": "2027-01-05",
+  "category": "rent",
+  "recurrence": "once",
+  "roomieIds": [],
+  "ownerEmail": "{{owner}}"
+}
+
+### A roomie who is not in the roomshare → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "amount": 850,
+  "dueDate": "2027-01-05",
+  "category": "rent",
+  "recurrence": "once",
+  "roomieIds": [999999],
+  "ownerEmail": "{{owner}}"
+}
+
+### Broken JSON → 400
+POST {{baseUrl}}
+Content-Type: application/json
+
+{ "amount": 850,
+
+### Unknown email → 401
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "amount": 850,
+  "dueDate": "2027-01-05",
+  "category": "rent",
+  "roomieIds": [{{roomieId}}],
+  "ownerEmail": "nobody@mail.be"
+}
+
+### A roomie cannot publish a charge → 403
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "amount": 850,
+  "dueDate": "2027-01-05",
+  "category": "rent",
+  "roomieIds": [{{roomieId}}],
+  "ownerEmail": "{{roomie}}"
+}
+
+
+# ---------------------------------------------------------------- PUT : confirm a payment
+
+### The owner confirms that the roomie paid his part → 204
+PUT {{baseUrl}}/{{partId}}/settle?email={{owner}}
+
+### The same part a second time (already settled) → 400
+PUT {{baseUrl}}/{{partId}}/settle?email={{owner}}
+
+### A part that does not exist → 404
+PUT {{baseUrl}}/999999/settle?email={{owner}}
+
+### A roomie cannot confirm a payment → 403
+PUT {{baseUrl}}/{{partId}}/settle?email={{roomie}}
+
+### Unknown email → 401
+PUT {{baseUrl}}/{{partId}}/settle?email=nobody@mail.be
