@@ -17,8 +17,6 @@ import be.cohabitapi.cohabitapi.EXCEPTION.ExpenseNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotCreditorException;
 import jakarta.persistence.*;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -293,20 +291,6 @@ public class Roomie extends Person {
         expenseDAO.createAll(debts);
 
         return debts;
-    }
-
-    private List<Roomie> findSharers(List<Integer> sharedWithIds) {
-        if (sharedWithIds == null || sharedWithIds.isEmpty())
-            throw new IllegalArgumentException("Choose at least one roomie to split with.");
-
-        Set<Roomie> sharers = new HashSet<>();
-        for (Integer id : sharedWithIds) {
-            sharers.add(roomshare.findRoomie(id));
-        }
-
-        List<Roomie> ordered = roomshare.getAcceptedRoomies();
-        ordered.retainAll(sharers);
-        return ordered;
     }
 
     // Adds an expense to the list of what this roomie has to pay: he becomes its debtor

@@ -79,7 +79,7 @@ public class Expense {
 
     // Private: only split uses it, to give each part the date and the category of this expense
     // without writing them as texts just to read them again
-    private Expense(String name, Double sum, LocalDate creationDate, ExpenseCategory type) {
+    public Expense(String name, Double sum, LocalDate creationDate, ExpenseCategory type) {
         setName(name);
         setSum(sum);
         setCreationDate(creationDate);
