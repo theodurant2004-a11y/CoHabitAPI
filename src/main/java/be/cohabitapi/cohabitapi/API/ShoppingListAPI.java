@@ -80,12 +80,8 @@ public class ShoppingListAPI {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response addItem(@PathParam("roomShareId") int roomShareId, AddItemReq req) {
-        // Check that the DTO in the request (the JSON sent) is full
-        if (req == null ||
-                req.getName() == null ||
-                req.getCategory() == null ||
-                req.getQuantity() == null
-        ) return error(Response.Status.BAD_REQUEST, "JSON invalid."); // Use of the shortcut method of 'APIResponse'
+        // Check that the DTO in the request (the JSON sent) is not null
+        if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid."); // Use of the shortcut method of 'APIResponse'
 
         try {
             RoomShare roomShare = RoomShare.findByIdWithItems(roomShareDAO, roomShareId);
@@ -126,8 +122,7 @@ public class ShoppingListAPI {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response updateItem(@PathParam("roomShareId") int roomShareId, @PathParam("productId") int productId, UpdateItemReq req) {
-        if (req == null || (req.getQuantity() == null && req.getStatus() == null))
-            return error(Response.Status.BAD_REQUEST, "JSON invalid.");
+        if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
 
         try {
             RoomShare roomShare = RoomShare.findByIdWithItems(roomShareDAO, roomShareId);
@@ -193,8 +188,7 @@ public class ShoppingListAPI {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response addPurchase(@PathParam("roomShareId") int roomShareId, AddPurchaseReq req) {
-        if (req == null || req.getDescription() == null || req.getAmount() == null || req.getPaidBy() == null)
-            return error(Response.Status.BAD_REQUEST, "JSON invalid.");
+        if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
 
         try {
             // The room share comes with its roomies and its items

@@ -19,7 +19,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -88,6 +87,20 @@ class ExpenseAPITest {
         return req;
     }
 
+    // An expense that the debtor owes to the creditor, with an id like the db would give it
+    // (an expense has no setter for its id)
+    private Expense savedDebt(int id, Roomie debtor, Roomie creditor) {
+        Expense expense = new Expense("Groceries", 15.0, "2026-10-29", "food") {
+            @Override
+            public Integer getId() {
+                return id;
+            }
+        };
+        debtor.addExpenseToPay(expense);
+        creditor.addExpenseToReceive(expense);
+        return expense;
+    }
+
     // A roomie who sent a join request but is not accepted yet
     private Roomie pendingRoomie() {
         Roomie pending = new Roomie("Ding", "Pen", "pending@mail.com", "Test1234!");
@@ -101,7 +114,7 @@ class ExpenseAPITest {
     @Test
     void getExpenses_roomieWithDebts_returns200WithTheData() {
         // the second roomie owes 15 euros to me
-        Expense debt = new Expense("Groceries", 15.0, LocalDate.of(2026, 10, 29), "food", second, me);
+        Expense debt = new Expense("Groceries", 15.0, "2026-10-29", "food");
         second.addExpenseToPay(debt);
         me.addExpenseToReceive(debt);
 
@@ -122,6 +135,8 @@ class ExpenseAPITest {
         assertEquals("Test Roomie", body.getExpenses().get(0).getCreditor());
         assertFalse(body.getExpenses().get(0).isSettled());
         assertEquals("2026-10-29", body.getExpenses().get(0).getDate());
+        // the front receives the code of the category and chooses the icon itself
+        assertEquals("food", body.getExpenses().get(0).getCategory());
         assertEquals(1, body.getRefunds().size());
         assertEquals("Nora Lfarh", body.getRefunds().get(0).getFrom());
         assertEquals("Test Roomie", body.getRefunds().get(0).getTo());
@@ -221,6 +236,59 @@ class ExpenseAPITest {
     }
 
     @Test
+    void createExpense_someoneElsePaid_theOthersOweHim() {
+        // I type an expense that the second roomie paid for the 3 of us
+        CreateExpenseRequest req = validRequest();
+        req.setPaidById(2);
+
+        assertEquals(201, api.createExpense(req).getStatus());
+        // The third roomie and me owe 15 euros each to the second roomie
+        assertEquals(30.0, second.calculateToReceive(), 0.001);
+        assertEquals(15.0, me.calculateToPay(), 0.001);
+        assertEquals(0.0, me.calculateToReceive(), 0.001);
+    }
+
+    @Test
+    void createExpense_noAmount_returns400() {
+        // The front sent no amount at all: it must be a 400, not a 500
+        CreateExpenseRequest req = validRequest();
+        req.setAmount(null);
+
+        assertEquals(400, api.createExpense(req).getStatus());
+        verify(expenseDAO, never()).createAll(anyList());
+    }
+
+    @Test
+    void createExpense_invalidDate_returns400() {
+        CreateExpenseRequest req = validRequest();
+        req.setDate("29/10/2026");
+
+        assertEquals(400, api.createExpense(req).getStatus());
+        verify(expenseDAO, never()).createAll(anyList());
+    }
+
+    @Test
+    void createExpense_unknownCategory_returns400() {
+        CreateExpenseRequest req = validRequest();
+        req.setCategory("unknown");
+
+        assertEquals(400, api.createExpense(req).getStatus());
+        verify(expenseDAO, never()).createAll(anyList());
+    }
+
+    @Test
+    void createExpense_payerOfAnotherRoomshareOrMissing_returns400() {
+        CreateExpenseRequest req = validRequest();
+        req.setPaidById(99);
+        assertEquals(400, api.createExpense(req).getStatus());
+
+        req.setPaidById(null);
+        assertEquals(400, api.createExpense(req).getStatus());
+
+        verify(expenseDAO, never()).createAll(anyList());
+    }
+
+    @Test
     void createExpense_noBody_returns400() {
         assertEquals(400, api.createExpense(null).getStatus());
 
@@ -296,5 +364,74 @@ class ExpenseAPITest {
         doThrow(new RuntimeException("database down")).when(expenseDAO).createAll(anyList());
 
         assertEquals(500, api.createExpense(validRequest()).getStatus());
+    }
+
+    // ------------------------- PUT : settle an expense --------------------------------------------------
+
+    @Test
+    void settleExpense_creditor_returns204AndSavesTheExpense() {
+        // The second roomie owes 15 euros to me
+        Expense expense = savedDebt(7, second, me);
+        when(expenseDAO.findById(7)).thenReturn(expense);
+
+        Response response = api.settleExpense(7, "me@mail.com");
+
+        assertEquals(204, response.getStatus());
+        assertTrue(expense.isSettled());
+        verify(expenseDAO).update(expense);
+    }
+
+    @Test
+    void settleExpense_debtor_returns403AndSavesNothing() {
+        // I owe 15 euros to the second roomie: only he can say that I paid
+        Expense expense = savedDebt(7, me, second);
+        when(expenseDAO.findById(7)).thenReturn(expense);
+
+        assertEquals(403, api.settleExpense(7, "me@mail.com").getStatus());
+        assertFalse(expense.isSettled());
+        verify(expenseDAO, never()).update(any());
+    }
+
+    @Test
+    void settleExpense_unknownExpense_returns404() {
+        assertEquals(404, api.settleExpense(99, "me@mail.com").getStatus());
+
+        verify(expenseDAO, never()).update(any());
+    }
+
+    @Test
+    void settleExpense_expenseBetweenOtherRoomies_returns403() {
+        // The expense exists, but I am not the one who is owed
+        Expense expense = savedDebt(7, second, third);
+        when(expenseDAO.findById(7)).thenReturn(expense);
+
+        assertEquals(403, api.settleExpense(7, "me@mail.com").getStatus());
+        assertFalse(expense.isSettled());
+        verify(expenseDAO, never()).update(any());
+    }
+
+    @Test
+    void settleExpense_alreadySettled_returns400() {
+        Expense expense = savedDebt(7, second, me);
+        expense.settle();
+        when(expenseDAO.findById(7)).thenReturn(expense);
+
+        assertEquals(400, api.settleExpense(7, "me@mail.com").getStatus());
+        verify(expenseDAO, never()).update(any());
+    }
+
+    @Test
+    void settleExpense_unknownEmail_returns401() {
+        when(personDAO.findByEmail("nobody@mail.com")).thenReturn(null);
+
+        assertEquals(401, api.settleExpense(7, "nobody@mail.com").getStatus());
+    }
+
+    @Test
+    void settleExpense_unexpectedError_returns500() {
+        when(expenseDAO.findById(7)).thenReturn(savedDebt(7, second, me));
+        doThrow(new RuntimeException("database down")).when(expenseDAO).update(any());
+
+        assertEquals(500, api.settleExpense(7, "me@mail.com").getStatus());
     }
 }
