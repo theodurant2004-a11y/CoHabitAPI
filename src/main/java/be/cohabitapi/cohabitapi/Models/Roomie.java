@@ -17,8 +17,6 @@ import be.cohabitapi.cohabitapi.EXCEPTION.ExpenseNotFoundException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotCreditorException;
 import jakarta.persistence.*;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,6 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Locale;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Set;
 
@@ -203,6 +202,7 @@ public class Roomie extends Person {
 
     // Finds the accepted roomie behind this email, with his roomshare loaded
     // Used for expenses and tasks
+    // static because there is no object yet: it gives the roomie, the first object. Everything after is called on him
     public static Roomie findAcceptedMember(String email, PersonDAO personDAO, RoomShareDAO roomShareDAO) {
         String cleanEmail = normalizeEmail(email);
         Person person = Person.findByEmail(cleanEmail, personDAO);
@@ -219,82 +219,125 @@ public class Roomie extends Person {
         return roomie.loadRoomshare(roomShareDAO);
     }
 
+    // Gives me back inside my roomshare loaded with its roomies and all their expenses
+    // The DAO builds new objects, so I look for myself again in the list of the loaded roomshare
+    // equals compares the email, so we find the same person without using the ids
     public Roomie loadRoomshare(RoomShareDAO dao) {
         RoomShare loaded = dao.findWithRoomies(roomshare.getId());
-        return loaded.findRoomie(getIdPerson());
+
+        Roomie myself = null;
+        for (Roomie roomie : loaded.getAcceptedRoomies()) {
+            if (roomie.equals(this))
+                myself = roomie;
+        }
+
+        // Not in the list anymore: the owner removed me between the two queries
+        if (myself == null)
+            throw new NotInRoomshareException();
+
+        return myself;
     }
 
-    public List<Expense> addExpense(String description, Double amount, String date, String category,
-                                    Integer paidById, List<Integer> sharedWithIds, ExpenseDAO expenseDAO) {
+    // ADD AN EXPENSE : I am the roomie who paid, and the expense is shared between the roomies of the list
+    // "expense" is the whole expense, as it was typed in the form (ex: groceries, 45 euros):
+    // its own setters already checked every value, so here we only share it
+    // Each roomie of the list receives his part as a new expense to pay, and I am the one who is owed
+    // Returns the expenses that were created (one for each roomie who owes his part)
+    public List<Expense> addExpense(Expense expense, List<Roomie> sharers, ExpenseDAO expenseDAO) {
+        // Only an accepted member can use the expenses
         checkIsAccepted();
 
-        long totalCents = toCents(amount);
-        LocalDate cleanDate = parseDate(date);
+        if (expense == null)
+            throw new IllegalArgumentException("The expense cannot be null");
+        if (sharers == null || sharers.isEmpty())
+            throw new IllegalArgumentException("Choose at least one roomie to split with.");
 
-        Roomie payer = roomshare.findRoomie(paidById);
-        List<Roomie> ordered = findSharers(sharedWithIds);
+        // The roomies of the split must be accepted members of my roomshare
+        List<Roomie> members = roomshare.getAcceptedRoomies();
+        if (!members.containsAll(sharers))
+            throw new IllegalArgumentException("A roomie of the list does not belong to your roomshare.");
 
-        long baseCents = totalCents / ordered.size();
-        long remainder = totalCents % ordered.size();
+        // We go through the list of the roomshare and keep the roomies of the split:
+        // the order is always the same, and a roomie who is twice in the split is counted once
+        List<Roomie> ordered = new ArrayList<>();
+        for (Roomie member : members) {
+            if (sharers.contains(member))
+                ordered.add(member);
+        }
+
+        // The expense divides its own sum: one part for each roomie of the split
+        List<Expense> parts = expense.split(ordered.size());
 
         List<Expense> debts = new ArrayList<>();
         for (int i = 0; i < ordered.size(); i++) {
-            long shareCents = baseCents + (i < remainder ? 1 : 0);
             Roomie sharer = ordered.get(i);
 
-            if (!sharer.equals(payer)) {
-                debts.add(new Expense(description, shareCents / 100.0, cleanDate, category, sharer, payer));
+            // I do not owe money to myself, so my own part is not an expense
+            if (!sharer.equals(this)) {
+                Expense part = parts.get(i);
+
+                // The part enters the two lists: the roomie is its debtor and I am its creditor
+                sharer.addExpenseToPay(part);
+                addExpenseToReceive(part);
+                debts.add(part);
             }
         }
 
         if (debts.isEmpty())
             throw new IllegalArgumentException("Choose at least one other roomie than the one who paid.");
 
+        // All the expenses are saved in one transaction: everything is saved, or nothing
+        // If it fails, the exception goes up to the API (500) and these objects disappear with the request
         expenseDAO.createAll(debts);
-
-        for (Expense debt : debts) {
-            debt.getDebtor().addExpenseToPay(debt);
-            payer.addExpenseToReceive(debt);
-        }
 
         return debts;
     }
 
-    private List<Roomie> findSharers(List<Integer> sharedWithIds) {
-        if (sharedWithIds == null || sharedWithIds.isEmpty())
-            throw new IllegalArgumentException("Choose at least one roomie to split with.");
-
-        Set<Roomie> sharers = new HashSet<>();
-        for (Integer id : sharedWithIds) {
-            sharers.add(roomshare.findRoomie(id));
-        }
-
-        List<Roomie> ordered = roomshare.getAcceptedRoomies();
-        ordered.retainAll(sharers);
-        return ordered;
-    }
-
+    // Adds an expense to the list of what this roomie has to pay: he becomes its debtor
+    // Always use this method to connect an expense and its debtor (same idea as RoomShare.addRoomie):
+    // the list and the expense are changed together, so they always say the same thing
     public void addExpenseToPay(Expense expense) {
         if (expense == null)
             throw new IllegalArgumentException("The expense cannot be null");
+        if (expense.getDebtor() != null)
+            throw new IllegalArgumentException("The expense already has a debtor");
+        // Nobody owes money to himself
+        if (this.equals(expense.getCreditor()))
+            throw new IllegalArgumentException("The debtor and the creditor cannot be the same person");
+
         expensesToPay.add(expense);
+        expense.setDebtor(this);
     }
 
+    // All the expenses that concern me: the ones I have to pay and the ones I have to receive
+    // We only read my two lists, the DAO is not needed
     public List<Expense> findMyExpenses() {
         List<Expense> mine = new ArrayList<>(expensesToPay);
         mine.addAll(getExpensesToReceive());
 
-        mine.sort((a, b) -> {
-            int byDate = b.getCreationDate().compareTo(a.getCreationDate());
-            if (byDate != 0)
-                return byDate;
-            return b.getId().compareTo(a.getId());
-        });
+        // The newest first, and for the same day the last one created (the biggest id) first
+        // An expense that is not saved yet has no id: nullsFirst avoids a NullPointerException
+        mine.sort(Comparator.comparing(Expense::getCreationDate)
+                .thenComparing(Expense::getId, Comparator.nullsFirst(Comparator.naturalOrder()))
+                .reversed());
+
         return mine;
     }
 
+    // What I have to give to the others
     public double calculateToPay() {
-        return sumInCents(expensesToPay) / 100.0;
+        return sumToPayInCents() / 100.0;
+    }
+
+    // Adds the expenses of my own list, like Person does with the ones it has to receive
+    // Private: only this class needs it
+    private long sumToPayInCents() {
+        long cents = 0;
+
+        for (Expense expense : expensesToPay) {
+            cents += expense.getPendingSumInCents();
+        }
+        return cents;
     }
 
     public static Roomie checkRightRoomie(PersonDAO dao, String roomieEmail) {
@@ -330,7 +373,7 @@ public class Roomie extends Person {
 
     // What I receive minus what I pay, in cents
     public long calculateBalanceInCents() {
-        return sumInCents(getExpensesToReceive()) - sumInCents(expensesToPay);
+        return sumToReceiveInCents() - sumToPayInCents();
     }
 
     public int calculatePercent() {
@@ -375,7 +418,10 @@ public class Roomie extends Person {
 
         List<Refund> refunds = new ArrayList<>();
 
-        while (true) {
+        // We repeat until nobody owes money anymore
+        boolean balanced = false;
+        while (!balanced) {
+            // The roomie who owes the most and the roomie who is owed the most
             Roomie debtor = null;
             Roomie creditor = null;
             for (Roomie member : members) {
@@ -386,37 +432,21 @@ public class Roomie extends Person {
                     creditor = member;
             }
 
-            if (debtor == null || creditor == null)
-                break;
+            if (debtor == null || creditor == null) {
+                // Nobody owes money or nobody is owed money: everything is balanced
+                balanced = true;
+            } else {
+                // The debtor pays what he can to the creditor: the smallest of the two amounts
+                long amount = Math.min(-left.get(debtor), left.get(creditor));
+                refunds.add(new Refund(debtor, creditor, amount / 100.0));
 
-            long amount = Math.min(-left.get(debtor), left.get(creditor));
-            refunds.add(new Refund(debtor, creditor, amount / 100.0));
-
-            left.put(debtor, left.get(debtor) + amount);
-            left.put(creditor, left.get(creditor) - amount);
+                // We update what is left for the two roomies
+                left.put(debtor, left.get(debtor) + amount);
+                left.put(creditor, left.get(creditor) - amount);
+            }
         }
 
         return refunds;
-    }
-
-    private long toCents(Double amount) {
-        if (amount == null || amount.isNaN() || amount.isInfinite() || amount <= 0)
-            throw new IllegalArgumentException("The amount must be greater than 0.");
-        if (amount > 100000)
-            throw new IllegalArgumentException("The amount is too high.");
-
-        return Math.round(amount * 100);
-    }
-
-    private LocalDate parseDate(String date) {
-        if (date == null || date.trim().isEmpty())
-            throw new IllegalArgumentException("The date is required.");
-
-        try {
-            return LocalDate.parse(date.trim());
-        } catch (DateTimeParseException e) {
-            throw new IllegalArgumentException("The date must look like 2026-10-20.");
-        }
     }
 
     //  ACCEPT A ROOMIE

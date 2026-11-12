@@ -20,6 +20,7 @@ import be.cohabitapi.cohabitapi.Models.Expense;
 import be.cohabitapi.cohabitapi.Models.ExpenseCategory;
 import be.cohabitapi.cohabitapi.Models.Person;
 import be.cohabitapi.cohabitapi.Models.Refund;
+import be.cohabitapi.cohabitapi.Models.RoomShare;
 import be.cohabitapi.cohabitapi.Models.Roomie;
 import static be.cohabitapi.cohabitapi.API.APIResponse.error;
 
@@ -30,7 +31,10 @@ import jakarta.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
 
-// The url is /api/expenses
+// Every route about the expenses of a roomshare
+// The full URL is /api/expenses
+// Each route starts with Roomie.findAcceptedMember: it checks who is calling (401 / 403)
+// and gives back the roomie with his roomshare, its roomies and all their expenses loaded
 @Path("/expenses")
 public class ExpenseAPI {
 
@@ -42,15 +46,19 @@ public class ExpenseAPI {
     private RoomShareDAO roomShareDAO;
 
 
-    // To see my expenses
+    // MY EXPENSES : GET /api/expenses?email=...
+    // Everything the page shows: the summary, my expenses, the balances of everybody and the refunds
+    // A GET has no body, so the email comes in the URL
     // TODO : remove the email when the session system is efficient (the API will know who is calling)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Response getExpenses(@QueryParam("email") String email) {
         try {
+            // 1. Who is calling? He must be an accepted roomie
             Roomie me = Roomie.findAcceptedMember(email, personDAO, roomShareDAO);
 
-            // We answer with dto and not the model because of the password hash
+            // 2. The model reads its own lists and calculates everything
+            // We answer with DTOs and never with the model itself, which carries the password hash
             return Response.ok(toResponse(me, me.findMyExpenses(), me.suggestRefunds())).build();
 
         } catch (IllegalArgumentException e) {
@@ -70,7 +78,8 @@ public class ExpenseAPI {
         }
     }
 
-    // The categories for the form
+    // THE CATEGORIES : GET /api/expenses/categories
+    // Used to fill the list of the form. The front adds the icon of each category itself
     @GET
     @Path("/categories")
     @Produces(MediaType.APPLICATION_JSON)
@@ -88,7 +97,8 @@ public class ExpenseAPI {
         }
     }
 
-    // To add an expense: one debt is created for each roomie
+    // ADD AN EXPENSE : POST /api/expenses
+    // The roomie types one expense, and the API saves one expense for each roomie who owes his part
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
@@ -99,14 +109,17 @@ public class ExpenseAPI {
         try {
             Roomie me = Roomie.findAcceptedMember(req.getRoomieEmail(), personDAO, roomShareDAO);
 
-            me.addExpense(
-                    req.getDescription(),
-                    req.getAmount(),
-                    req.getDate(),
-                    req.getCategory(),
-                    req.getPaidById(),
-                    req.getSharedWithIds(),
-                    expenseDAO);
+            // JSON => objects of the model, the API only translates
+            // The expense as it was typed in the form: its own setters check every value (400)
+            Expense expense = new Expense(req.getDescription(), req.getAmount(), req.getDate(), req.getCategory());
+
+            // The ids of the JSON become roomies: the roomshare looks for them in its own list (400)
+            RoomShare roomshare = me.getRoomshare();
+            Roomie payer = roomshare.findRoomie(req.getPaidById());
+            List<Roomie> sharers = roomshare.findRoomies(req.getSharedWithIds());
+
+            // The roomie who paid shares the expense with the roomies of the split
+            payer.addExpense(expense, sharers, expenseDAO);
 
             // 201 Created: new rows exist now. The front asks the list again
             return Response.status(Response.Status.CREATED).build();
@@ -128,17 +141,19 @@ public class ExpenseAPI {
         }
     }
 
-    // To say that an expense is paid
-    // id is the id of the expense and the email says who is asking
+    // SETTLE AN EXPENSE : PUT /api/expenses/{id}/settle?email=...
+    // Only the roomie who is owed the money can say that he was paid back
+    // {id} is read from the URL by @PathParam (/api/expenses/abc gives a 404 automatically)
     // TODO : remove the email when the session system is efficient (the API will know who is calling)
     @PUT
     @Path("/{id}/settle")
     @Produces(MediaType.APPLICATION_JSON)
     public Response settleExpense(@PathParam("id") int id, @QueryParam("email") String email) {
         try {
-            // the user must be an accepted member of a roomshare
+            // must be an accepted roomie
             Roomie me = Roomie.findAcceptedMember(email, personDAO, roomShareDAO);
 
+            // Only the roomie who is owed can settle it (403), only once (400), and it must exist (404)
             me.settleExpense(id, expenseDAO);
 
             // The front asks the list again to see the new totals
@@ -166,7 +181,7 @@ public class ExpenseAPI {
 
 
     // Model => DTO
-    // This method only copies what the model calculated into the DTOs
+    // This method only copies what the model calculated into the DTOs, it never calculates anything
     private ExpensesResponse toResponse(Roomie me, List<Expense> mine, List<Refund> refunds) {
         List<MemberResponse> members = new ArrayList<>();
         List<BalanceResponse> balanceList = new ArrayList<>();
@@ -191,7 +206,7 @@ public class ExpenseAPI {
                     expense.getDebtor().getFullName(),
                     creditor == null ? null : creditor.getIdPerson(),
                     creditor == null ? "" : creditor.getFullName(),
-                    expense.getCategory().getCode(),
+                    expense.getType().getCode(),
                     expense.isSettled()));
         }
 

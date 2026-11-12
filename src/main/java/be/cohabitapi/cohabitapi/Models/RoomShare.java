@@ -198,6 +198,21 @@ public class RoomShare {
     }
 
 
+    // Same thing for several roomies: the ids sent by the front become objects
+    // Each roomie is searched in the list of this roomshare, so they are all accepted roomies of it
+    public List<Roomie> findRoomies(List<Integer> ids) {
+        if (ids == null || ids.isEmpty())
+            throw new IllegalArgumentException("Choose at least one roomie.");
+
+        List<Roomie> found = new ArrayList<>();
+        for (Integer id : ids) {
+            // findRoomie refuses an empty id and an id that is not an accepted roomie of this roomshare
+            found.add(findRoomie(id));
+        }
+
+        return found;
+    }
+
     // ------------------------- DAO methods --------------------------------------------------
 
     public void create(DAO<RoomShare> dao) { dao.create(this); }
