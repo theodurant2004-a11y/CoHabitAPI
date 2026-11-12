@@ -150,7 +150,18 @@ public abstract class Person {
 
     // What the others have to give me
     public double calculateToReceive() {
-        return sumInCents(expensesToReceive) / 100.0;
+        return sumToReceiveInCents() / 100.0;
+    }
+
+    // Adds the expenses of my own list, in cents (whole numbers: no rounding problem)
+    // Each expense says what it still counts for, so the settled ones are not added
+    protected long sumToReceiveInCents() {
+        long cents = 0;
+
+        for (Expense expense : expensesToReceive) {
+            cents += expense.getPendingSumInCents();
+        }
+        return cents;
     }
 
     // Abstract because a roomie and an owner don't calculate their balance the same way
@@ -160,21 +171,20 @@ public abstract class Person {
     public abstract RoomShare findRoomshareWithEvents(RoomShareDAO dao);
 
     // Used when a new expense is created
+    // Adds the expense to the list of what this person has to receive: he becomes its creditor
+    // Always use this method to connect an expense and its creditor
+    // the list and the expense are changed together, so they always say the same thing
     public void addExpenseToReceive(Expense expense) {
         if (expense == null)
             throw new IllegalArgumentException("The expense cannot be null");
+        if (expense.getCreditor() != null)
+            throw new IllegalArgumentException("The expense already has a creditor");
+        // Nobody owes money to himself
+        if (this.equals(expense.getDebtor()))
+            throw new IllegalArgumentException("The debtor and the creditor cannot be the same person");
+
         expensesToReceive.add(expense);
-    }
-
-    // Add the sums of the debts that are not settled in cents (no rounding problem)
-    protected long sumInCents(List<Expense> expenses) {
-        long cents = 0;
-
-        for (Expense expense : expenses) {
-            if (!expense.isSettled())
-                cents += expense.getSumInCents();
-        }
-        return cents;
+        expense.setCreditor(this);
     }
 
     private static String hashPassword(String password){

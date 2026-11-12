@@ -193,18 +193,14 @@ public class ShoppingListAPI {
             Roomie loadedBuyer = buyer.loadRoomshare(roomShareDAO);
             RoomShare roomShare = loadedBuyer.getRoomshare();
             List<Roomie> allRoomies = roomShare.getAcceptedRoomies();
-            List<Integer> allRoomiesIds = new ArrayList<>();
-            for (Roomie roomie : allRoomies) {
-                allRoomiesIds.add(roomie.getIdPerson());
-            }
 
             loadedBuyer.addExpense(
-                    req.getDescription(),
-                    req.getAmount(),
-                    java.time.LocalDate.now().toString(),
-                    "food", // TODO : To replace when the catgeory "groceries" will be added
-                    buyer.getIdPerson(),
-                    allRoomiesIds,
+                    new Expense(
+                            req.getDescription(),
+                            req.getAmount(),
+                            java.time.LocalDate.now().toString(),
+                            ExpenseCategory.FOOD.getCode()), // TODO : To replace when the catgeory "groceries" will be added
+                    allRoomies,
                     expenseDAO
             );
 

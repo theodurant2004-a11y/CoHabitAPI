@@ -80,16 +80,37 @@ class RoomieExpenseTest {
 
     // ------------------------- Helpers --------------------------------------------------
 
-    // A debt of "sum" euros: the debtor owes it to the creditor. It is put in the two lists
+    // The date used by the tests that do not care about the date
+    private static final LocalDate DATE = LocalDate.of(2026, 10, 20);
+
+    // The whole expense typed in the form, before it is shared between the roomies
+    private Expense expense(double sum) {
+        return new Expense("Groceries", sum, DATE.toString(), "food");
+    }
+
+    // An expense of "sum" euros that the debtor owes to the creditor: it is put in their two lists
     private Expense debt(double sum, Roomie debtor, Person creditor, LocalDate date) {
-        Expense expense = new Expense("Groceries", sum, date, "food", debtor, creditor);
+        Expense expense = new Expense("Groceries", sum, date.toString(), "food");
         debtor.addExpenseToPay(expense);
         creditor.addExpenseToReceive(expense);
         return expense;
     }
 
     private Expense debt(double sum, Roomie debtor, Person creditor) {
-        return debt(sum, debtor, creditor, LocalDate.of(2026, 10, 20));
+        return debt(sum, debtor, creditor, DATE);
+    }
+
+    // Same thing, but with an id like the db would give it (an expense has no setter for its id)
+    private Expense savedDebt(int id, double sum, Roomie debtor, Person creditor) {
+        Expense expense = new Expense("Groceries", sum, DATE.toString(), "food") {
+            @Override
+            public Integer getId() {
+                return id;
+            }
+        };
+        debtor.addExpenseToPay(expense);
+        creditor.addExpenseToReceive(expense);
+        return expense;
     }
 
     // A roomie who is not in the roomshare
@@ -186,14 +207,27 @@ class RoomieExpenseTest {
         assertSame(me, me.loadRoomshare(roomShareDAO));
     }
 
+    @Test
+    void loadRoomshare_iAmNotInTheRoomshareAnymore_throwsNotInRoomshareException() {
+        // The owner removed me: I am not in the list of the roomshare the DAO gives back
+        Roomie removed = pendingRoomie();
+        when(roomShareDAO.findWithRoomies(any())).thenReturn(roomshare);
+
+        assertThrows(NotInRoomshareException.class, () -> removed.loadRoomshare(roomShareDAO));
+    }
+
 
     // ------------------------- addExpense : the split --------------------------------------------------
 
+    // "payer" paid "sum" euros of groceries, shared between the roomies of "sharers"
+    private List<Expense> share(Roomie payer, double sum, List<Roomie> sharers) {
+        return payer.addExpense(expense(sum), sharers, expenseDAO);
+    }
+
     @Test
-    void addExpense_sharedByThree_createsTwoDebtsOfTheSameSum() {
+    void addExpense_sharedByThree_createsTwoExpensesOfTheSameSum() {
         // I paid 45 euros for the 3 of us: the 2 others owe me 15 each
-        List<Expense> debts = me.addExpense("Groceries", 45.0, "2026-10-20", "food",
-                1, List.of(1, 2, 3), expenseDAO);
+        List<Expense> debts = share(me, 45, List.of(me, second, third));
 
         assertEquals(2, debts.size());
         assertEquals(15.0, debts.get(0).getSum(), 0.001);
@@ -202,20 +236,23 @@ class RoomieExpenseTest {
         assertSame(third, debts.get(1).getDebtor());
         assertSame(me, debts.get(0).getCreditor());
         assertSame(me, debts.get(1).getCreditor());
-        assertEquals(LocalDate.of(2026, 10, 20), debts.get(0).getCreationDate());
+        // The roomie created the expenses with what was typed
+        assertEquals("Groceries", debts.get(0).getName());
+        assertEquals(DATE, debts.get(0).getCreationDate());
+        assertEquals(ExpenseCategory.FOOD, debts.get(0).getType());
     }
 
     @Test
-    void addExpense_savesAllTheDebtsInOneCall() {
-        me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(1, 2, 3), expenseDAO);
+    void addExpense_savesAllTheExpensesInOneCall() {
+        share(me, 45, List.of(me, second, third));
 
         verify(expenseDAO, times(1)).createAll(savedDebts.capture());
         assertEquals(2, savedDebts.getValue().size());
     }
 
     @Test
-    void addExpense_putsTheDebtsInTheListsOfTheRoomies() {
-        me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(1, 2, 3), expenseDAO);
+    void addExpense_putsTheExpensesInTheListsOfTheRoomies() {
+        share(me, 45, List.of(me, second, third));
 
         // I have 2 expenses to receive and the others have 1 expense to pay each
         assertEquals(2, me.getExpensesToReceive().size());
@@ -227,8 +264,7 @@ class RoomieExpenseTest {
     @Test
     void addExpense_remainderInCents_isGivenToTheFirstRoomiesAndTheTotalStaysExact() {
         // 10 euros between 3 = 3.34 + 3.33 + 3.33. The third roomie paid, so only the 2 first ones owe money
-        List<Expense> debts = third.addExpense("Pizza", 10.0, "2026-10-20", "food",
-                3, List.of(1, 2, 3), expenseDAO);
+        List<Expense> debts = share(third, 10, List.of(me, second, third));
 
         assertEquals(2, debts.size());
         assertEquals(334, debts.get(0).getSumInCents());
@@ -238,18 +274,27 @@ class RoomieExpenseTest {
     @Test
     void addExpense_duplicateRoomies_areCountedOnce() {
         // "second" is in the list twice, but the split is still between 2 roomies: 10 euros => 5 each
-        List<Expense> debts = me.addExpense("Taxi", 10.0, "2026-10-20", "other",
-                1, List.of(1, 2, 2), expenseDAO);
+        List<Expense> debts = share(me, 10, List.of(me, second, second));
 
         assertEquals(1, debts.size());
         assertEquals(5.0, debts.get(0).getSum(), 0.001);
     }
 
     @Test
-    void addExpense_someoneElsePaid_theDebtGoesToThePayer() {
-        // I add an expense that the second roomie paid for me and the third roomie
-        List<Expense> debts = me.addExpense("Cinema", 20.0, "2026-10-20", "leisure",
-                2, List.of(1, 2, 3), expenseDAO);
+    void addExpense_orderOfTheList_doesNotChangeTheSplit() {
+        // The roomies are always taken in the order of the roomshare (me, second, third)
+        List<Expense> debts = share(third, 10, List.of(third, second, me));
+
+        assertSame(me, debts.get(0).getDebtor());
+        assertEquals(334, debts.get(0).getSumInCents());
+        assertSame(second, debts.get(1).getDebtor());
+        assertEquals(333, debts.get(1).getSumInCents());
+    }
+
+    @Test
+    void addExpense_calledOnTheRoomieWhoPaid_heIsTheCreditor() {
+        // The second roomie paid 20 euros for me and the third roomie: the method is called on him
+        List<Expense> debts = share(second, 20, List.of(me, second, third));
 
         assertEquals(2, debts.size());
         assertSame(second, debts.get(0).getCreditor());
@@ -260,92 +305,84 @@ class RoomieExpenseTest {
         assertTrue(me.getExpensesToReceive().isEmpty());
     }
 
+    @Test
+    void addExpense_payerNotInTheSplit_theOthersOweEverything() {
+        // I paid 30 euros only for the 2 others: they owe me 15 each
+        List<Expense> debts = share(me, 30, List.of(second, third));
+
+        assertEquals(2, debts.size());
+        assertEquals(15.0, debts.get(0).getSum(), 0.001);
+        assertEquals(15.0, debts.get(1).getSum(), 0.001);
+        assertEquals(30.0, me.calculateToReceive(), 0.001);
+    }
+
 
     // ------------------------- addExpense : what the user sent is not valid --------------------------------------------------
 
     @Test
-    void addExpense_onlyThePayerInTheSplit_throwsExceptionAndSavesNothing() {
+    void addExpense_nullExpense_throwsException() {
         assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(1), expenseDAO));
+                () -> me.addExpense(null, List.of(me, second), expenseDAO));
 
         verify(expenseDAO, never()).createAll(anyList());
+    }
+
+    @Test
+    void addExpense_theWholeExpenseItselfIsNeverSaved() {
+        Expense whole = expense(45);
+
+        me.addExpense(whole, List.of(me, second, third), expenseDAO);
+
+        // Only the parts are saved and put in the lists, the whole expense stays outside
+        verify(expenseDAO).createAll(savedDebts.capture());
+        assertFalse(savedDebts.getValue().contains(whole));
+        assertFalse(me.getExpensesToReceive().contains(whole));
+        assertNull(whole.getDebtor());
+    }
+
+    @Test
+    void addExpense_onlyThePayerInTheSplit_throwsExceptionAndSavesNothing() {
+        assertThrows(IllegalArgumentException.class, () -> share(me, 45, List.of(me)));
+
+        verify(expenseDAO, never()).createAll(anyList());
+        assertTrue(me.getExpensesToReceive().isEmpty());
     }
 
     @Test
     void addExpense_sharerNotInTheRoomshare_throwsException() {
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(1, 99), expenseDAO));
+        Roomie stranger = outsider();
+
+        assertThrows(IllegalArgumentException.class, () -> share(me, 45, List.of(me, stranger)));
 
         verify(expenseDAO, never()).createAll(anyList());
     }
 
     @Test
-    void addExpense_payerNotInTheRoomshareOrMissing_throwsException() {
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", 99, List.of(1, 2), expenseDAO));
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", null, List.of(1, 2), expenseDAO));
+    void addExpense_sharerNotAcceptedYet_throwsException() {
+        Roomie pending = pendingRoomie();
+
+        assertThrows(IllegalArgumentException.class, () -> share(me, 45, List.of(me, pending)));
 
         verify(expenseDAO, never()).createAll(anyList());
     }
 
     @Test
     void addExpense_emptyOrNullSplit_throwsException() {
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(), expenseDAO));
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, null, expenseDAO));
+        assertThrows(IllegalArgumentException.class, () -> share(me, 45, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> share(me, 45, null));
         // Arrays.asList accepts null, List.of does not
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, Arrays.asList(1, null), expenseDAO));
-    }
-
-    @Test
-    void addExpense_invalidAmount_throwsException() {
-        List<Integer> sharers = List.of(1, 2);
-
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", null, "2026-10-20", "food", 1, sharers, expenseDAO));
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 0.0, "2026-10-20", "food", 1, sharers, expenseDAO));
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", -3.0, "2026-10-20", "food", 1, sharers, expenseDAO));
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 100001.0, "2026-10-20", "food", 1, sharers, expenseDAO));
-    }
-
-    @Test
-    void addExpense_invalidDescription_throwsExceptionAndSavesNothing() {
-        List<Integer> sharers = List.of(1, 2);
-
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense(null, 45.0, "2026-10-20", "food", 1, sharers, expenseDAO));
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("  ", 45.0, "2026-10-20", "food", 1, sharers, expenseDAO));
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("a".repeat(51), 45.0, "2026-10-20", "food", 1, sharers, expenseDAO));
+        assertThrows(IllegalArgumentException.class, () -> share(me, 45, Arrays.asList(me, null)));
 
         verify(expenseDAO, never()).createAll(anyList());
     }
 
     @Test
-    void addExpense_invalidDate_throwsException() {
-        List<Integer> sharers = List.of(1, 2);
+    void addExpense_amountTooSmallToBeSplit_throwsExceptionAndSavesNothing() {
+        // 1 cent cannot be shared between 3 roomies
+        assertThrows(IllegalArgumentException.class, () -> share(me, 0.01, List.of(me, second, third)));
 
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, null, "food", 1, sharers, expenseDAO));
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "20/10/2026", "food", 1, sharers, expenseDAO));
-    }
-
-    @Test
-    void addExpense_invalidCategory_throwsException() {
-        List<Integer> sharers = List.of(1, 2);
-
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", "unknown", 1, sharers, expenseDAO));
-        assertThrows(IllegalArgumentException.class,
-                () -> me.addExpense("Groceries", 45.0, "2026-10-20", null, 1, sharers, expenseDAO));
+        verify(expenseDAO, never()).createAll(anyList());
+        assertTrue(second.getExpensesToPay().isEmpty());
     }
 
 
@@ -355,8 +392,7 @@ class RoomieExpenseTest {
     void addExpense_roomieNotAcceptedYet_throwsNotInRoomshareException() {
         Roomie pending = pendingRoomie();
 
-        assertThrows(NotInRoomshareException.class,
-                () -> pending.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(1, 2), expenseDAO));
+        assertThrows(NotInRoomshareException.class, () -> share(pending, 45, List.of(me, second)));
 
         verify(expenseDAO, never()).createAll(anyList());
     }
@@ -365,8 +401,67 @@ class RoomieExpenseTest {
     void addExpense_roomieWithoutRoomshare_throwsNotInRoomshareException() {
         Roomie alone = outsider();
 
-        assertThrows(NotInRoomshareException.class,
-                () -> alone.addExpense("Groceries", 45.0, "2026-10-20", "food", 1, List.of(1, 2), expenseDAO));
+        assertThrows(NotInRoomshareException.class, () -> share(alone, 45, List.of(me, second)));
+    }
+
+
+    // ------------------------- The two lists : addExpenseToPay and addExpenseToReceive --------------------------------------------------
+
+    @Test
+    void addExpenseToPay_putsTheExpenseInTheListAndSetsTheDebtor() {
+        Expense expense = expense(10);
+
+        second.addExpenseToPay(expense);
+
+        assertTrue(second.getExpensesToPay().contains(expense));
+        assertSame(second, expense.getDebtor());
+    }
+
+    @Test
+    void addExpenseToReceive_putsTheExpenseInTheListAndSetsTheCreditor() {
+        Expense expense = expense(10);
+
+        me.addExpenseToReceive(expense);
+
+        assertTrue(me.getExpensesToReceive().contains(expense));
+        assertSame(me, expense.getCreditor());
+    }
+
+    @Test
+    void addExpenseToPay_expenseThatAlreadyHasADebtor_throwsException() {
+        Expense expense = debt(10, second, me);
+
+        // The same expense cannot be owed by two roomies
+        assertThrows(IllegalArgumentException.class, () -> third.addExpenseToPay(expense));
+        assertThrows(IllegalArgumentException.class, () -> second.addExpenseToPay(expense));
+        assertSame(second, expense.getDebtor());
+        assertEquals(1, second.getExpensesToPay().size());
+    }
+
+    @Test
+    void addExpenseToReceive_expenseThatAlreadyHasACreditor_throwsException() {
+        Expense expense = debt(10, second, me);
+
+        assertThrows(IllegalArgumentException.class, () -> third.addExpenseToReceive(expense));
+        assertSame(me, expense.getCreditor());
+    }
+
+    @Test
+    void sameRoomieAsDebtorAndCreditor_throwsException() {
+        // Nobody owes money to himself, in the two orders
+        Expense first = expense(10);
+        me.addExpenseToPay(first);
+        assertThrows(IllegalArgumentException.class, () -> me.addExpenseToReceive(first));
+
+        Expense other = expense(10);
+        me.addExpenseToReceive(other);
+        assertThrows(IllegalArgumentException.class, () -> me.addExpenseToPay(other));
+    }
+
+    @Test
+    void addExpenseToPayOrToReceive_null_throwsException() {
+        assertThrows(IllegalArgumentException.class, () -> me.addExpenseToPay(null));
+        assertThrows(IllegalArgumentException.class, () -> me.addExpenseToReceive(null));
     }
 
 
@@ -398,6 +493,27 @@ class RoomieExpenseTest {
     }
 
 
+    @Test
+    void findMyExpenses_sameDayAndNotSavedYet_doesNotFail() {
+        // Two expenses of the same day that have no id yet (they are not in the db)
+        debt(10, me, second);
+        debt(10, third, me);
+
+        assertEquals(2, me.findMyExpenses().size());
+    }
+
+    @Test
+    void findMyExpenses_sameDay_theLastOneCreatedIsFirst() {
+        Expense first = savedDebt(1, 10, me, second);
+        Expense last = savedDebt(2, 10, third, me);
+
+        List<Expense> mine = me.findMyExpenses();
+
+        assertSame(last, mine.get(0));
+        assertSame(first, mine.get(1));
+    }
+
+
     // ------------------------- Totals --------------------------------------------------
 
     @Test
@@ -421,7 +537,7 @@ class RoomieExpenseTest {
     @Test
     void totals_ignoreTheSettledDebts() {
         Expense settled = debt(10, me, second);
-        settled.setSettled(true);
+        settled.settle();
         debt(5, me, third);
         debt(8, second, me);
 
@@ -467,7 +583,7 @@ class RoomieExpenseTest {
     @Test
     void calculateBalance_ignoresTheSettledDebts() {
         Expense settled = debt(10, second, me);
-        settled.setSettled(true);
+        settled.settle();
 
         assertEquals(0L, me.calculateBalanceInCents());
         assertEquals(0L, second.calculateBalanceInCents());
