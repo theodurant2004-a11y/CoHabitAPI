@@ -26,6 +26,9 @@ public class ShoppingListAPI {
     @Inject private RoomShareDAO roomShareDAO;
     @Inject private ExpenseDAO expenseDAO;
 
+    // Not a DAO, but used like one: the only class that talks to the AI
+    @Inject private ReceiptScanner receiptScanner;
+
     // The method to get the shopping list
     @GET
     @Path("/{roomShareId}")
@@ -208,6 +211,42 @@ public class ShoppingListAPI {
         }
         catch (IllegalArgumentException e) {
             return error(Response.Status.BAD_REQUEST, e.getMessage());
+        }
+        catch (RuntimeException e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Internal Server Error.");
+        }
+    }
+
+    // The method to scan a receipt: the AI reads the photo and proposes the items to check and the total paid
+    // Nothing changes in db here: the front checks the proposed items and fills the amount,
+    // then the roomie confirms with the purchases route above
+    @POST
+    @Path("/{roomShareId}/scan")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response scanReceipt(@PathParam("roomShareId") int roomShareId, ScanReceiptReq req) {
+        if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
+
+        try {
+            RoomShare roomShare = RoomShare.findByIdWithItems(roomShareDAO, roomShareId);
+
+            // The room share checks the photo, asks the scanner and keeps only its own items
+            ReceiptScan scan = roomShare.scanReceipt(req.getImage(), receiptScanner);
+
+            return Response.status(Response.Status.OK)
+                    .entity(new ScanReceiptResponse(scan.getItemIds(), scan.getTotal()))
+                    .build();
+        }
+        catch (RoomShareNotFoundException e) {
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+        }
+        catch (IllegalArgumentException e) {
+            // The image is missing (or far too big to be a reduced photo)
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+        }
+        catch (ReceiptScanUnavailableException e) {
+            // The AI cannot answer (down, quota exceeded, answer that cannot be read): the roomie fills the form himself
+            return error(Response.Status.SERVICE_UNAVAILABLE, e.getMessage());
         }
         catch (RuntimeException e) {
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Internal Server Error.");

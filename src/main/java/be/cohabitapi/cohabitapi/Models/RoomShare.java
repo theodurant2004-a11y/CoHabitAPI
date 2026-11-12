@@ -206,6 +206,18 @@ public class RoomShare {
         return checked;
     }
 
+    // The method to return the list of the items that are not checked yet: the ones still to buy
+    public List<Item> getUncheckedItems() {
+        List<Item> unchecked = new ArrayList<>();
+
+        for (Item item : items) {
+            if (!item.getStatus())
+                unchecked.add(item);
+        }
+
+        return unchecked;
+    }
+
     public void confirmShoppingListPurchase(Integer paidById, String description, Double amount, ExpenseDAO expenseDAO, ItemDAO itemDAO) {
         if (getCheckedItems().isEmpty()) throw new NoItemCheckedException();
 
@@ -224,6 +236,36 @@ public class RoomShare {
 
         // We delete all the checked items because this means they have been found and bought
         deleteCheckedItems(itemDAO);
+    }
+
+    // SCAN A RECEIPT : the AI reads the photo of a receipt and proposes the items to check and the total paid
+    // Nothing is saved here: it is only a proposal, the roomie corrects it and confirms the purchase himself
+    // The scanner is received as a parameter, like a DAO
+    public ReceiptScan scanReceipt(String image, ReceiptScanner scanner) {
+        // Without a photo there is nothing to read: IllegalArgumentException, the API answers 400
+        // 4 000 000 characters of base64 is about 3 MB of photo, the front sends much less (a reduced JPEG)
+        String cleanImage = normalizeStringAttribute(image, "image", 4_000_000);
+
+        // Everything is already checked (or the list is empty): the AI has nothing to look for, so we do not call it
+        List<Item> unchecked = getUncheckedItems();
+        if (unchecked.isEmpty())
+            return new ReceiptScan(new ArrayList<>(), null);
+
+        // The scanner throws ReceiptScanUnavailableException if the AI cannot answer (the API answers 503)
+        ReceiptScan read = scanner.scan(cleanImage, unchecked);
+
+        // We do not trust the ids of the AI: we go through OUR unchecked items and keep the ones the AI found
+        // So an id that is not in the list (or an item already checked) is ignored, and an id sent twice is kept once
+        List<Integer> found = new ArrayList<>();
+        for (Item item : unchecked) {
+            Integer productId = item.getProduct().getId();
+
+            if (read.getItemIds().contains(productId))
+                found.add(productId);
+        }
+
+        // The total goes through the setter of ReceiptScan: a negative total becomes null
+        return new ReceiptScan(found, read.getTotal());
     }
 
     // Search an item in the list of the room share and return it
