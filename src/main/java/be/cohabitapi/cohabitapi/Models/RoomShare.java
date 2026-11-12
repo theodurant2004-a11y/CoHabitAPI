@@ -213,12 +213,12 @@ public class RoomShare {
         Roomie payer = findRoomie(paidById);
 
         payer.addExpense(
-                description, // The description input
-                amount, // The amount input
-                LocalDate.now().toString(), // The current date in String
-                "food", // The matching category, always 'food' for that
+                new Expense(
+                    description, // The description input
+                    amount, // The amount input
+                    LocalDate.now().toString(), // The current date in String
+                    ExpenseCategory.FOOD.getCode()), // The matching category, always 'food' for that
                 getAcceptedRoomies(), // The list of members of the room share, because the expense is shared equally among all members
-                paidById, // The id of the roomie who paid, the logged-in user
                 expenseDAO // The DAO concerned
         );
 
