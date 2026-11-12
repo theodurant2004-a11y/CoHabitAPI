@@ -1,17 +1,15 @@
 package be.cohabitapi.cohabitapi.Models;
 
-import static be.cohabitapi.cohabitapi.API.APIResponse.error;
 import static be.cohabitapi.cohabitapi.Utils.VerificationOperation.normalizeStringAttribute;
 
 import be.cohabitapi.cohabitapi.DAO.DAO;
 import be.cohabitapi.cohabitapi.DAO.PersonDAO;
 import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
-import be.cohabitapi.cohabitapi.EXCEPTION.NoItemInTheListException;
+import be.cohabitapi.cohabitapi.DAO.EventDAO;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotInRoomshareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.NotMemberOfRoomShareException;
 import be.cohabitapi.cohabitapi.EXCEPTION.UserNotFoundException;
 import jakarta.persistence.*;
-import jakarta.ws.rs.core.Response;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
@@ -57,6 +55,9 @@ public class RoomShare {
     @OneToMany(mappedBy = "roomshare", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Task> tasks = new ArrayList<>();
 
+    // Events live and die with their roomshare, its a composition
+    @OneToMany(mappedBy = "roomshare", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<Event> events = new ArrayList<>();
 
     // ------------------------- Getters and Setters --------------------------------------------------
 
@@ -106,6 +107,9 @@ public class RoomShare {
 
     // unmodifiablelist return a read only list so we can't clear the list passing trough getTask
     public List<Task> getTasks() {return Collections.unmodifiableList(tasks); }
+
+    // Read only list, same reason as getTasks
+    public List<Event> getEvents() { return Collections.unmodifiableList(events); }
 
 
     // ------------------------- Constructors --------------------------------------------------
@@ -233,6 +237,64 @@ public class RoomShare {
         members.addAll(personDAO.findAcceptedRoomiesByOwner(owner.getIdPerson()));
 
         return members;
+    }
+
+    // ------------------------- EVENTS OF A ROOMSHARE --------------------------------------------------
+
+    // ADD AN EVENT: the roomshare creates its event and adds it to its list, it<s a composition
+    public void addEvent(Event event, EventDAO eventDAO) {
+
+        // Nothing to add
+        if (event == null)
+            throw new IllegalArgumentException("The event cannot be null");
+
+        // The event knows its roomshare (it needs it to be saved: roomshare_id cannot be null)
+        event.setRoomshare(this);
+
+        // The event saves itself and receives its id from the db
+        event.create(eventDAO);
+
+        // The roomshare knows its event
+        // Last, so a save that fails does not leave an event in the list
+        events.add(event);
+    }
+
+    // EVENTS LIST: the events of this roomshare from "from" to "to"
+    // "from" is required and "to" is optional
+    // The roomshare reads its own list "events", we do not ask the DAO because the objects already know the answer
+    public List<Event> findEvents(String from, String to) {
+        // Clean the dates: the text "2026-11-01" becomes a LocalDate
+        LocalDate cleanFrom = Event.parseDate(from, "start date");
+
+        // "to" is optional we only read it if the front sent something
+        LocalDate cleanTo = null;
+        if (to != null && !to.trim().isEmpty()) {
+            cleanTo = Event.parseDate(to, "end date");
+
+            // An end before the start can never match an event
+            if (cleanTo.isBefore(cleanFrom))
+                throw new IllegalArgumentException("The end date cannot be before the start date.");
+        }
+
+        // We go through the events of the roomshare and keep the ones between the two dates
+        // isBefore and isAfter are strict, so we write "not before" and "not after" to include the two limits
+        List<Event> found = new ArrayList<>();
+        for (Event event : events) {
+            // The event is on the start date or after it
+            boolean afterStart = !event.getDate().isBefore(cleanFrom);
+            // There is no end date, or the event is on the end date or before it
+            boolean beforeEnd = cleanTo == null || !event.getDate().isAfter(cleanTo);
+
+            if (afterStart && beforeEnd)
+                found.add(event);
+        }
+
+        // Sorted by date, then by id for the events of the same day
+        // An event that is not saved yet has no id, so we put it last instead of failing
+        found.sort(Comparator.comparing(Event::getDate)
+                .thenComparing(Event::getId, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        return found;
     }
 
     public static RoomShare findById(RoomShareDAO dao, Integer id) { return dao.findById(id); }
