@@ -221,4 +221,22 @@ public class Event {
             return text == null ? null : LocalTime.parse(text, FORMAT);
         }
     }
+    
+
+    // ------------------------- Overloads -------------------------
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Event event = (Event) o;
+
+        return id != null && id.equals(event.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }

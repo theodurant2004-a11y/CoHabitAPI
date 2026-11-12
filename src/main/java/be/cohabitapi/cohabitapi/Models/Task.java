@@ -248,4 +248,23 @@ public class Task {
             throw new IllegalArgumentException("The due date must have the format YYYY-MM-DD.");
         }
     }
+
+
+    // ------------------------- Overloads -------------------------
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Task task = (Task) o;
+
+        return id != null && id.equals(task.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }

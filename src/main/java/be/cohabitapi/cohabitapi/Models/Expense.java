@@ -254,4 +254,22 @@ public class Expense {
             throw new IllegalArgumentException("This expense is already settled.");
         settled = true;
     }
+
+
+    // ------------------------- Overloads --------------------------------------------------
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Expense expense = (Expense) o;
+
+        return id != null && id.equals(expense.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }
