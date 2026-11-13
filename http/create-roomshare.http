@@ -1,0 +1,7 @@
+POST http://localhost:8080/CoHabitAPI/api/roomshares
+Content-Type: application/json
+
+{
+  "name": "Alice's Home",
+  "ownerEmail": "alice@mail.be"
+}

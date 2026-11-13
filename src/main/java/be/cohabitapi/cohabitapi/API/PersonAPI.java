@@ -1,0 +1,134 @@
+package be.cohabitapi.cohabitapi.API;
+
+import be.cohabitapi.cohabitapi.DAO.PersonDAO;
+import be.cohabitapi.cohabitapi.DAO.RoomShareDAO;
+import be.cohabitapi.cohabitapi.Models.Owner;
+import be.cohabitapi.cohabitapi.Models.RoomShare;
+import be.cohabitapi.cohabitapi.DTO.SigninRequest;
+import be.cohabitapi.cohabitapi.DTO.SignupRequest;
+import be.cohabitapi.cohabitapi.DTO.UserResponse;
+import be.cohabitapi.cohabitapi.EXCEPTION.EmailAlreadyUsedException;
+import be.cohabitapi.cohabitapi.EXCEPTION.InvalidCredentialsException;
+import be.cohabitapi.cohabitapi.Models.Person;
+import be.cohabitapi.cohabitapi.Models.Roomie;
+import static be.cohabitapi.cohabitapi.API.APIResponse.error;
+
+import jakarta.inject.Inject;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import java.util.Collections;
+import java.util.Locale;
+
+@Path("/users")
+public class PersonAPI {
+
+    @Inject
+    private PersonDAO dao;
+
+    @Inject
+    private RoomShareDAO roomShareDAO;
+
+// SIGNUP
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response createAccount(SignupRequest req) {
+
+        //Verify if one DTO exist
+        if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
+
+        try {
+            // 1. The role decides which class is created (the only thing API decides)
+            String role = req.getRole() == null ? "" : req.getRole().trim().toLowerCase(Locale.ROOT);
+            Person person;
+
+            if("owner".equals(role)) {
+                person = new Owner(req.getLastname(), req.getFirstname(), req.getEmail(), req.getPassword(), req.getConfirmPassword());
+            } else if ("roomie".equals(role)) {
+                person = new Roomie(req.getLastname(), req.getFirstname(), req.getEmail(), req.getPassword(), req.getConfirmPassword());
+            } else {
+                return error(Response.Status.BAD_REQUEST, "Invalid role.");
+            }
+
+            //2. the person saves itself
+            person.create(dao);
+
+            // api response (the role is sent back to the front)
+            UserResponse userResponse = new UserResponse(
+                    person.getIdPerson(),
+                    person.getFirstName(),
+                    person.getLastName(),
+                    person.getEmail(),
+                    role.toLowerCase(Locale.ROOT));
+
+            return Response.status(Response.Status.CREATED)
+                    .entity(Collections.singletonMap("user", userResponse))
+                    .build();
+
+        } catch (EmailAlreadyUsedException e) {
+            //error 409 CONFLICT
+            return error(Response.Status.CONFLICT, e.getMessage());
+
+        } catch (IllegalArgumentException e) {
+            //error 400 BAD_REQUEST: a business rule is broken in the model or the role is invalid
+            return error(Response.Status.BAD_REQUEST, e.getMessage());
+
+        } catch (RuntimeException e) {
+            //error 500 INTERNAL_SERVER_ERROR (for example the database is not reachable)
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
+        }
+    }
+
+    //--------------------- SignIn gestion -------------------------------
+    @POST
+    @Path("/login")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response login(SigninRequest req){
+
+        //Verify if one DTO exist
+        if (req == null) return error(Response.Status.BAD_REQUEST, "JSON invalid.");
+
+        try {
+            // Ask the model
+            Person personLogin = Person.login(req.getEmail(), req.getPassword(), dao);
+
+            // Take the role of user
+            String role = personLogin.getClass().getSimpleName();
+
+
+            // api response
+            UserResponse userResponse = new UserResponse(personLogin.getIdPerson(), personLogin.getFirstName(), personLogin.getLastName(), personLogin.getEmail(), role.toLowerCase(Locale.ROOT));
+
+            // A roomie gets his membership status and the name of his roomshare
+            // An owner gets the name and the key of his roomshare if he already created it
+            if (personLogin instanceof Roomie roomie) {
+                userResponse.setMembershipStatus(roomie.getStatusMember().name().toLowerCase(Locale.ROOT)); // PENDING becomes "pending"
+                if (roomie.getRoomshare() != null) {
+                    userResponse.setRoomshareName(roomie.getRoomshare().getName());
+                    userResponse.setRoomshareId(roomie.getRoomshare().getId());
+                }
+            } else if (personLogin instanceof Owner owner) {
+                RoomShare roomshare = owner.findRoomshare(roomShareDAO);
+                if (roomshare != null) {
+                    userResponse.setRoomshareName(roomshare.getName());
+                    userResponse.setInvitationKey(roomshare.getInvitationKey());
+                    userResponse.setRoomshareId(roomshare.getId());
+                }
+            }
+
+            return Response.ok(
+                            Collections.singletonMap("user", userResponse))
+                    .build();
+
+        } catch (InvalidCredentialsException e) {
+            //error 401 UNAUTHORIZED
+            return error(Response.Status.UNAUTHORIZED, e.getMessage());
+
+        } catch (RuntimeException e) {
+            //error 500 INTERNAL_SERVER_ERROR
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Server error");
+        }
+    }
+}

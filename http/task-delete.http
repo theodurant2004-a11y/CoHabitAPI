@@ -1,0 +1,100 @@
+# Base URL of the API (Tomcat Application context must be /CoHabitAPI)
+@baseUrl = http://localhost:8080/CoHabitAPI/api/tasks
+
+# Uses the test data of task-test-data.sql: copy the ids of its last SELECT here
+@accepted1Id = 350
+@accepted2Id = 351
+
+# Run the requests IN ORDER, from top to bottom:
+# the error cases come first (the task must still exist after them), then the real delete
+# The "> {% ... %}" part of the SETUP requests only saves the id of the new task, it checks nothing
+# A DELETE has no body: the email is sent in the URL (?roomieEmail=...)
+
+
+# =====================================================================
+# SETUP
+# =====================================================================
+
+### SETUP 1. A task with 2 roomies in tasktestroomshare → 201, its id is saved in {{taskId}}
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Tache a supprimer",
+  "roomieIds": [{{accepted1Id}}, {{accepted2Id}}],
+  "roomieEmail": "task_roomie_accepted1@test.be"
+}
+
+> {% client.global.set("taskId", response.body.task.id); %}
+
+### SETUP 2. A task in tasktestroomshare_other → 201, its id is saved in {{otherTaskId}}
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "name": "Tache de l'autre coloc a ne pas supprimer",
+  "roomieEmail": "task_roomie_other@test.be"
+}
+
+> {% client.global.set("otherTaskId", response.body.task.id); %}
+
+
+# =====================================================================
+# ERRORS : the task must NOT be deleted
+# =====================================================================
+
+### 1. An owner → 403, "This type of user cannot do this action."
+DELETE {{baseUrl}}/{{taskId}}?roomieEmail=task_owner@test.be
+
+### 2. A pending roomie → 403, "You must be an accepted member of a roomshare."
+DELETE {{baseUrl}}/{{taskId}}?roomieEmail=task_roomie_pending@test.be
+
+### 3. A roomie without roomshare → 403, "You must be an accepted member of a roomshare."
+DELETE {{baseUrl}}/{{taskId}}?roomieEmail=task_roomie_none@test.be
+
+### 4. Unknown email → 401, "Authentication required."
+DELETE {{baseUrl}}/{{taskId}}?roomieEmail=nobody@mail.be
+
+### 5. Missing email → 400, "Email is required"
+DELETE {{baseUrl}}/{{taskId}}
+
+### 6. Empty email → 400, "Email is required"
+DELETE {{baseUrl}}/{{taskId}}?roomieEmail=
+
+### 7. Task that does not exist → 404, "The received task does not exist."
+DELETE {{baseUrl}}/999999?roomieEmail=task_roomie_accepted1@test.be
+
+### 8. Task of the other roomshare → 404 (not 403: nobody learns that it exists)
+DELETE {{baseUrl}}/{{otherTaskId}}?roomieEmail=task_roomie_accepted1@test.be
+
+### 9. Id that is not a number → 404 (answered by JAX-RS itself)
+DELETE {{baseUrl}}/abc?roomieEmail=task_roomie_accepted1@test.be
+
+### 10. No id in the URL → 405 (there is no DELETE on /api/tasks)
+DELETE {{baseUrl}}?roomieEmail=task_roomie_accepted1@test.be
+
+
+# =====================================================================
+# DELETE OK
+# =====================================================================
+
+### 11. Delete OK by the OTHER accepted roomie (not the creator) → 204, empty answer
+# Every accepted roomie of the roomshare can delete a task
+DELETE {{baseUrl}}/{{taskId}}?roomieEmail=task_roomie_accepted2@test.be
+
+### 12. Delete the same task again → 404, it does not exist anymore
+DELETE {{baseUrl}}/{{taskId}}?roomieEmail=task_roomie_accepted1@test.be
+
+### 13. Email with spaces and uppercase → 204 (cleaned like the login), deletes the task of the other roomshare
+# Done by its own roomie: proves that request 8 did not delete it
+DELETE {{baseUrl}}/{{otherTaskId}}?roomieEmail=%20%20TASK_ROOMIE_OTHER@test.be%20
+
+
+# =====================================================================
+# CORS
+# =====================================================================
+
+### CORS preflight for a DELETE (what the browser sends)
+OPTIONS {{baseUrl}}/{{taskId}}
+Origin: http://127.0.0.1:5501
+Access-Control-Request-Method: DELETE
